@@ -2,53 +2,230 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Login | Shohoz-Sheba</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — Shohoj Sheba</title>
     <link rel="stylesheet" href="login.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
 
-<div class="login-container">
+<!-- Navbar -->
+<header>
+    <div class="navbar">
+        <a href="index.html" class="logo">
+            <div class="logo-mark">
+                <i class="fa-solid fa-house-chimney"></i>
+            </div>
+            <span>Shohoj<span class="logo-accent">Sheba</span></span>
+        </a>
+        <div class="nav-actions">
+            <span class="nav-hint">Don't have an account?</span>
+            <a href="signup.html" class="nav-btn-solid">Sign Up</a>
+        </div>
+    </div>
+</header>
 
-    <!-- Left Image Panel -->
-    <div class="login-image">
-        <div class="overlay-text">
-            <h1>Shohoz-Sheba</h1>
-            <p>Your Trusted Home Service Partner</p>
+<!-- Login Page — Split Layout (matches wireframe) -->
+<main class="login-page">
+
+    <!-- LEFT: Image Panel -->
+    <div class="login-left">
+        <!-- Replace "your-login-image.jpg" with your image file -->
+        <div class="login-img-bg"></div>
+        <div class="login-left-overlay"></div>
+        <div class="login-left-content">
+            <div class="left-badge">
+                <i class="fa-solid fa-shield-halved"></i> Verified Professionals
+            </div>
+            <h2>Welcome Back to<br><span>Sohoj Sheba</span></h2>
+            <p>Connect with trusted home service experts in just a few clicks.</p>
+            <div class="left-stats">
+                <div class="lstat">
+                    <strong>10K+</strong>
+                    <span>Happy Clients</span>
+                </div>
+                <div class="lstat">
+                    <strong>500+</strong>
+                    <span>Expert Workers</span>
+                </div>
+                <div class="lstat">
+                    <strong>4.9★</strong>
+                    <span>Rating</span>
+                </div>
+            </div>
+            <!-- Decorative floating cards -->
+            <div class="float-card fc1">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Booking Confirmed!</span>
+            </div>
+            <div class="float-card fc2">
+                <i class="fa-solid fa-star"></i>
+                <span>5★ Rated Service</span>
+            </div>
         </div>
     </div>
 
-    <!-- Right Login Form -->
-    <div class="login-form-section">
+    <!-- RIGHT: Login Form (matches wireframe exactly) -->
+    <div class="login-right">
+        <div class="login-form-wrap">
 
-        <h2>Log in As</h2>
+            <!-- Logo repeat for mobile -->
+            <a href="index.html" class="logo mobile-logo">
+                <div class="logo-mark"><i class="fa-solid fa-house-chimney"></i></div>
+                <span>Shohoj<span class="logo-accent">Sheba</span></span>
+            </a>
 
-        <!-- Select Role -->
-        <div class="role-select">
-            <label>
-                <input type="radio" name="role" checked> User
-            </label>
+            <h1 class="form-title">Log In As</h1>
+            <p class="form-subtitle">Choose your account type to continue</p>
 
-            <label>
-                <input type="radio" name="role"> Worker
-            </label>
+            <!-- User / Worker Toggle (from wireframe) -->
+            <div class="role-toggle">
+                <input type="radio" name="role" id="role-user" value="user" checked>
+                <label for="role-user" class="role-label">
+                    <i class="fa-solid fa-user"></i>
+                    <span>User</span>
+                </label>
+
+                <input type="radio" name="role" id="role-worker" value="worker">
+                <label for="role-worker" class="role-label">
+                    <i class="fa-solid fa-hard-hat"></i>
+                    <span>Worker</span>
+                </label>
+            </div>
+
+            <!-- Login Form -->
+            <form class="login-form" onsubmit="handleLogin(event)">
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <div class="input-wrap">
+                        <i class="fa-solid fa-envelope input-icon"></i>
+                        <input
+                            type="email"
+                            id="email"
+                            placeholder="Enter your email"
+                            required
+                        >
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <div class="label-row">
+                        <label for="password">Password</label>
+                        <a href="#" class="forgot-link">Forgot password?</a>
+                    </div>
+                    <div class="input-wrap">
+                        <i class="fa-solid fa-lock input-icon"></i>
+                        <input
+                            type="password"
+                            id="password"
+                            placeholder="Enter your password"
+                            required
+                        >
+                        <button type="button" class="toggle-pw" onclick="togglePassword()">
+                            <i class="fa-solid fa-eye" id="eyeIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="remember-row">
+                    <label class="remember-label">
+                        <input type="checkbox" id="remember">
+                        <span class="custom-check"></span>
+                        Remember me
+                    </label>
+                </div>
+
+                <button type="submit" class="login-btn" id="loginBtn">
+                    <span class="btn-text">
+                        <i class="fa-solid fa-right-to-bracket"></i> Log In
+                    </span>
+                    <span class="btn-loader" style="display:none;">
+                        <i class="fa-solid fa-circle-notch fa-spin"></i> Logging in...
+                    </span>
+                </button>
+
+                <!-- Divider -->
+                <div class="divider"><span>or continue with</span></div>
+
+                <!-- Social Login -->
+                <div class="social-login">
+                    <button type="button" class="social-btn">
+                        <i class="fa-brands fa-google"></i> Google
+                    </button>
+                    <button type="button" class="social-btn">
+                        <i class="fa-brands fa-facebook"></i> Facebook
+                    </button>
+                </div>
+
+            </form>
+
+            <!-- Sign Up link (from wireframe: "Have any account? Sign Up") -->
+            <p class="signup-prompt">
+                Don't have any account?
+                <a href="signup.html" class="signup-link">Sign Up</a>
+            </p>
+
         </div>
-
-        <!-- Login Form -->
-        <form class="login-form">
-            <input type="email" placeholder="Enter Email" required>
-            <input type="password" placeholder="Enter Password" required>
-
-            <button type="submit">Login</button>
-        </form>
-
-        <p class="signup-text">
-            Don't have an account?
-            <a href="select-register.html">Sign Up</a>
-        </p>
-
     </div>
 
-</div>
+</main>
+
+<script>
+    // Password toggle
+    function togglePassword() {
+        const pw = document.getElementById('password');
+        const icon = document.getElementById('eyeIcon');
+        if (pw.type === 'password') {
+            pw.type = 'text';
+            icon.classList.replace('fa-eye', 'fa-eye-slash');
+        } else {
+            pw.type = 'password';
+            icon.classList.replace('fa-eye-slash', 'fa-eye');
+        }
+    }
+
+    // Login submit with loader
+    function handleLogin(e) {
+        e.preventDefault();
+        const btn = document.getElementById('loginBtn');
+        const text = btn.querySelector('.btn-text');
+        const loader = btn.querySelector('.btn-loader');
+        btn.disabled = true;
+        text.style.display = 'none';
+        loader.style.display = 'inline-flex';
+        // Simulate API call
+        setTimeout(() => {
+            btn.disabled = false;
+            text.style.display = 'inline-flex';
+            loader.style.display = 'none';
+            // redirect or show success here
+        }, 2000);
+    }
+
+    // Role toggle — change left panel accent color
+    document.querySelectorAll('input[name="role"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const left = document.querySelector('.login-left');
+            if (this.value === 'worker') {
+                left.classList.add('worker-mode');
+            } else {
+                left.classList.remove('worker-mode');
+            }
+        });
+    });
+
+    // Input focus animation
+    document.querySelectorAll('.input-wrap input').forEach(input => {
+        input.addEventListener('focus', () => {
+            input.closest('.input-wrap').classList.add('focused');
+        });
+        input.addEventListener('blur', () => {
+            input.closest('.input-wrap').classList.remove('focused');
+        });
+    });
+</script>
 
 </body>
 </html>
