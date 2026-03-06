@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up — Shohoj Sheba</title>
+    <link rel="stylesheet" href="login.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header>
+    <div class="navbar">
+        <a href="index.html" class="logo">
+            <div class="logo-mark">
+                <i class="fa-solid fa-house-chimney"></i>
+            </div>
+            <span>Shohoj<span class="logo-accent">Sheba</span></span>
+        </a>
+        <div class="nav-actions">
+            <span class="nav-hint">Already have an account?</span>
+            <a href="login.html" class="nav-btn-solid">Log In</a>
+        </div>
+    </div>
+</header>
+
+<main class="login-page">
+
+    <div class="login-left">
+        <div class="login-img-bg"></div>
+        <div class="login-left-overlay"></div>
+        <div class="login-left-content">
+            <div class="left-badge">
+                <i class="fa-solid fa-rocket"></i> Get Started Today
+            </div>
+            <h2>Join the<br><span>Sohoj Sheba</span> Community</h2>
+            <p>The easiest way to find expert help or grow your service business.</p>
+            
+            <div class="left-stats">
+                <div class="lstat">
+                    <strong>Free</strong>
+                    <span>Registration</span>
+                </div>
+                <div class="lstat">
+                    <strong>24/7</strong>
+                    <span>Support</span>
+                </div>
+                <div class="lstat">
+                    <strong>Secure</strong>
+                    <span>Payments</span>
+                </div>
+            </div>
+
+            <div class="float-card fc1">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>Join 10k+ Users</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="login-right">
+        <div class="login-form-wrap">
+
+            <a href="index.html" class="logo mobile-logo">
+                <div class="logo-mark"><i class="fa-solid fa-house-chimney"></i></div>
+                <span>Shohoj<span class="logo-accent">Sheba</span></span>
+            </a>
+
+            <h1 class="form-title">Create Account</h1>
+            <p class="form-subtitle">Register as a user or a service provider</p>
+
+            <div class="role-toggle">
+                <input type="radio" name="role" id="role-user" value="user" checked>
+                <label for="role-user" class="role-label">
+                    <i class="fa-solid fa-user"></i>
+                    <span>User</span>
+                </label>
+
+                <input type="radio" name="role" id="role-worker" value="worker">
+                <label for="role-worker" class="role-label">
+                    <i class="fa-solid fa-screwdriver-wrench"></i>
+                    <span>Worker</span>
+                </label>
+            </div>
+
+            <form class="login-form" id="signupForm" onsubmit="handleSignup(event)">
+                
+                <div class="form-group">
+                    <label for="fullname">Full Name</label>
+                    <div class="input-wrap">
+                        <i class="fa-solid fa-id-card input-icon"></i>
+                        <input type="text" id="fullname" placeholder="John Doe" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <div class="input-wrap">
+                        <i class="fa-solid fa-envelope input-icon"></i>
+                        <input type="email" id="email" placeholder="name@example.com" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-wrap">
+                        <i class="fa-solid fa-lock input-icon"></i>
+                        <input type="password" id="password" placeholder="At least 6 characters" required>
+                        <button type="button" class="toggle-pw" onclick="togglePassword()">
+                            <i class="fa-solid fa-eye" id="eyeIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="remember-row">
+                    <label class="remember-label">
+                        <input type="checkbox" id="terms" required>
+                        <span class="custom-check"></span>
+                        I agree to the <a href="#" style="color: var(--blue); margin-left:4px;">Terms & Conditions</a>
+                    </label>
+                </div>
+
+                <button type="submit" class="login-btn" id="signupBtn">
+                    <span class="btn-text">
+                        <i class="fa-solid fa-user-plus"></i> Create Account
+                    </span>
+                    <span class="btn-loader" style="display:none;">
+                        <i class="fa-solid fa-circle-notch fa-spin"></i> Processing...
+                    </span>
+                </button>
+
+                <div class="divider"><span>or sign up with</span></div>
+
+                <div class="social-login">
+                    <button type="button" class="social-btn">
+                        <i class="fa-brands fa-google"></i> Google
+                    </button>
+                </div>
+
+            </form>
+
+            <p class="signup-prompt">
+                Already have an account?
+                <a href="login.html" class="signup-link">Log In</a>
+            </p>
+
+        </div>
+    </div>
+</main>
+
+<script>
+    // Reuse your existing logic for the eye icon and role switching
+    function togglePassword() {
+        const pw = document.getElementById('password');
+        const icon = document.getElementById('eyeIcon');
+        if (pw.type === 'password') {
+            pw.type = 'text';
+            icon.classList.replace('fa-eye', 'fa-eye-slash');
+        } else {
+            pw.type = 'password';
+            icon.classList.replace('fa-eye-slash', 'fa-eye');
+        }
+    }
+
+    function handleSignup(e) {
+        e.preventDefault();
+        const btn = document.getElementById('signupBtn');
+        const text = btn.querySelector('.btn-text');
+        const loader = btn.querySelector('.btn-loader');
+        
+        btn.disabled = true;
+        text.style.display = 'none';
+        loader.style.display = 'inline-flex';
+
+        // Simulate logic (This would connect to SohojShebaAuth in your auth.js)
+        setTimeout(() => {
+            alert("Account created successfully!");
+            window.location.href = "login.html";
+        }, 2000);
+    }
+
+    // Color switching logic for Worker mode
+    document.querySelectorAll('input[name="role"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const left = document.querySelector('.login-left');
+            if (this.value === 'worker') {
+                left.classList.add('worker-mode');
+            } else {
+                left.classList.remove('worker-mode');
+            }
+        });
+    });
+
+    // Input focus animations
+    document.querySelectorAll('.input-wrap input').forEach(input => {
+        input.addEventListener('focus', () => input.closest('.input-wrap').classList.add('focused'));
+        input.addEventListener('blur', () => input.closest('.input-wrap').classList.remove('focused'));
+    });
+</script>
+
+<link rel="stylesheet" href="additional-styles.css">
+<script src="auth.js"></script>
+</body>
+</html>
