@@ -10,6 +10,7 @@
 </head>
 <body>
 
+<!-- Navbar -->
 <header>
     <div class="navbar">
         <a href="index.html" class="logo">
@@ -25,9 +26,12 @@
     </div>
 </header>
 
+<!-- Login Page — Split Layout (matches wireframe) -->
 <main class="login-page">
 
+    <!-- LEFT: Image Panel -->
     <div class="login-left">
+        <!-- Replace "your-login-image.jpg" with your image file -->
         <div class="login-img-bg"></div>
         <div class="login-left-overlay"></div>
         <div class="login-left-content">
@@ -39,7 +43,7 @@
             <div class="left-stats">
                 <div class="lstat">
                     <strong>10K+</strong>
-                    <span>Happy Clients</span>
+                    <span>Happy code</span>
                 </div>
                 <div class="lstat">
                     <strong>500+</strong>
@@ -50,6 +54,7 @@
                     <span>Rating</span>
                 </div>
             </div>
+            <!-- Decorative floating cards -->
             <div class="float-card fc1">
                 <i class="fa-solid fa-circle-check"></i>
                 <span>Booking Confirmed!</span>
@@ -61,9 +66,11 @@
         </div>
     </div>
 
+    <!-- RIGHT: Login Form (matches wireframe exactly) -->
     <div class="login-right">
         <div class="login-form-wrap">
 
+            <!-- Logo repeat for mobile -->
             <a href="index.html" class="logo mobile-logo">
                 <div class="logo-mark"><i class="fa-solid fa-house-chimney"></i></div>
                 <span>Shohoj<span class="logo-accent">Sheba</span></span>
@@ -72,6 +79,7 @@
             <h1 class="form-title">Log In As</h1>
             <p class="form-subtitle">Choose your account type to continue</p>
 
+            <!-- User / Worker Toggle (from wireframe) -->
             <div class="role-toggle">
                 <input type="radio" name="role" id="role-user" value="user" checked>
                 <label for="role-user" class="role-label">
@@ -86,13 +94,19 @@
                 </label>
             </div>
 
+            <!-- Login Form -->
             <form class="login-form" onsubmit="handleLogin(event)">
 
                 <div class="form-group">
                     <label for="email">Email Address</label>
                     <div class="input-wrap">
                         <i class="fa-solid fa-envelope input-icon"></i>
-                        <input type="email" id="email" placeholder="Enter your email" required>
+                        <input
+                            type="email"
+                            id="email"
+                            placeholder="Enter your email"
+                            required
+                        >
                     </div>
                 </div>
 
@@ -103,7 +117,12 @@
                     </div>
                     <div class="input-wrap">
                         <i class="fa-solid fa-lock input-icon"></i>
-                        <input type="password" id="password" placeholder="Enter your password" required>
+                        <input
+                            type="password"
+                            id="password"
+                            placeholder="Enter your password"
+                            required
+                        >
                         <button type="button" class="toggle-pw" onclick="togglePassword()">
                             <i class="fa-solid fa-eye" id="eyeIcon"></i>
                         </button>
@@ -127,8 +146,10 @@
                     </span>
                 </button>
 
+                <!-- Divider -->
                 <div class="divider"><span>or continue with</span></div>
 
+                <!-- Social Login -->
                 <div class="social-login">
                     <button type="button" class="social-btn">
                         <i class="fa-brands fa-google"></i> Google
@@ -140,6 +161,7 @@
 
             </form>
 
+            <!-- Sign Up link (from wireframe: "Have any account? Sign Up") -->
             <p class="signup-prompt">
                 Don't have any account?
                 <a href="signup.html" class="signup-link">Sign Up</a>
@@ -164,29 +186,22 @@
         }
     }
 
-    // UPDATED: Login submit with Role Redirection
+    // Login submit with loader
     function handleLogin(e) {
         e.preventDefault();
-        
-        // Identify the selected role (User or Worker)
-        const selectedRole = document.querySelector('input[name="role"]:checked').value;
         const btn = document.getElementById('loginBtn');
         const text = btn.querySelector('.btn-text');
         const loader = btn.querySelector('.btn-loader');
-        
-        // UI Loading state
         btn.disabled = true;
         text.style.display = 'none';
         loader.style.display = 'inline-flex';
-
-        // Simulate API call and then redirect
+        // Simulate API call
         setTimeout(() => {
-            if (selectedRole === 'worker') {
-                window.location.href = "worker-dashboard.html";
-            } else {
-                window.location.href = "user-dashboard.html";
-            }
-        }, 1500); // 1.5 seconds delay for professional feel
+            btn.disabled = false;
+            text.style.display = 'inline-flex';
+            loader.style.display = 'none';
+            // redirect or show success here
+        }, 2000);
     }
 
     // Role toggle — change left panel accent color
@@ -211,7 +226,6 @@
         });
     });
 </script>
-<link rel="stylesheet" href="additional-styles.css">
-<script src="auth.js"></script>
+
 </body>
 </html>
