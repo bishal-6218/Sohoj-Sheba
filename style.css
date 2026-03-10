@@ -1243,3 +1243,55 @@ footer {
     .feature-grid { grid-template-columns: 1fr; }
     .hero { padding: 60px 5% 80px; }
 }
+/* ===========================
+   SIGN UP BUTTON & LOADER 
+   =========================== */
+
+/* We use .login-btn because that is the class in your signup.html */
+.login-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, var(--green), #43a047);
+    color: white;
+    text-decoration: none;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 16px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: var(--transition);
+    box-shadow: 0 4px 12px rgba(46,125,50,0.3);
+    width: 100%; /* Keeps it full width for the form */
+}
+
+.login-btn:hover {
+    background: linear-gradient(135deg, var(--green-dark), var(--green));
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(46,125,50,0.4);
+}
+
+.login-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Spinner logic for the loading state */
+.btn-loader {
+    display: none; /* Hidden by default, JS will show it */
+    font-size: 18px;
+}
+
+/* This is already handled by FontAwesome's fa-spin class, 
+   but this ensures it works smoothly */
+.fa-spin {
+    animation: fa-spin 1s infinite linear;
+}
+
+@keyframes fa-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(359deg); }
+}
