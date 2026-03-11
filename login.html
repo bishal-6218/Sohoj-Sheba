@@ -172,8 +172,10 @@
 
 </main>
 
-<script>
-    // Password toggle
+<script src="auth.js"></script>
+
+<scrip>
+    // 1. Password toggle (Kept from your current code)
     function togglePassword() {
         const pw = document.getElementById('password');
         const icon = document.getElementById('eyeIcon');
@@ -186,25 +188,49 @@
         }
     }
 
-    // Login submit with loader
+    // 2. FIXED Login Logic: Combines your loader with auth.js functionality
     function handleLogin(e) {
         e.preventDefault();
+        
+        // UI Elements
         const btn = document.getElementById('loginBtn');
         const text = btn.querySelector('.btn-text');
         const loader = btn.querySelector('.btn-loader');
+        
+        // Data Elements
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const role = document.querySelector('input[name="role"]:checked').value;
+
+        // Start Animation
         btn.disabled = true;
         text.style.display = 'none';
         loader.style.display = 'inline-flex';
-        // Simulate API call
+
+        // Simulate network delay then run real Auth check
         setTimeout(() => {
-            btn.disabled = false;
-            text.style.display = 'inline-flex';
-            loader.style.display = 'none';
-            // redirect or show success here
-        }, 2000);
+            const users = JSON.parse(localStorage.getItem('shohoj_sheba_users') || '[]');
+            const user = users.find(u => u.email === email && u.password === password && u.role === role);
+
+            if (user) {
+                // Success: Save session and redirect
+                localStorage.setItem('shohoj_sheba_user', JSON.stringify(user));
+                if (role === 'worker') {
+                    window.location.href = 'worker-dashboard.html';
+                } else {
+                    window.location.href = 'user-dashboard.html';
+                }
+            } else {
+                // Failure: Reset UI and alert
+                alert("Invalid email, password, or role. Please try again.");
+                btn.disabled = false;
+                text.style.display = 'inline-flex';
+                loader.style.display = 'none';
+            }
+        }, 1000); // 1 second delay for a smooth "pro" feel
     }
 
-    // Role toggle — change left panel accent color
+    // 3. Role toggle (Kept from your current code)
     document.querySelectorAll('input[name="role"]').forEach(radio => {
         radio.addEventListener('change', function() {
             const left = document.querySelector('.login-left');
@@ -216,7 +242,7 @@
         });
     });
 
-    // Input focus animation
+    // 4. Input focus animation (Kept from your current code)
     document.querySelectorAll('.input-wrap input').forEach(input => {
         input.addEventListener('focus', () => {
             input.closest('.input-wrap').classList.add('focused');

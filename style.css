@@ -1243,3 +1243,43 @@ footer {
     .feature-grid { grid-template-columns: 1fr; }
     .hero { padding: 60px 5% 80px; }
 }
+/* ===========================
+   SIGN UP BUTTON FIX
+   =========================== */
+
+/* Target the specific class used in signup.html */
+.login-btn {
+    padding: 12px 24px;
+    background: linear-gradient(135deg, var(--green), #43a047);
+    color: white;
+    text-decoration: none;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 16px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: var(--transition);
+    box-shadow: 0 4px 12px rgba(46,125,50,0.3);
+    width: 100%; /* Keeps it aligned with your form layout */
+}
+
+.login-btn:hover {
+    background: linear-gradient(135deg, var(--green-dark), var(--green));
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(46,125,50,0.4);
+}
+
+.login-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Spinner logic for the loading state */
+.btn-loader {
+    display: none; /* Hidden by default; auth.js handles showing this */
+    font-size: 18px;
+}
