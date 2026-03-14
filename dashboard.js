@@ -1,10 +1,3 @@
-/* =============================================
-   SHOHOJ SHEBA — DASHBOARD.JS
-   Universal logic for User & Worker dashboards.
-   localStorage removed — session managed by PHP.
-   TODO: Replace fetch() stubs with real PHP endpoints.
-   ============================================= */
-
 const SohojShebaDashboard = {
 
     currentUser: null,
