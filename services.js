@@ -1,167 +1,30 @@
-// services.js
-// Dynamic content loader for service-detail.html
-// All logic is self-contained here — no inline script needed in HTML
-
-const serviceDatabase = {
-    carpenter: {
-        name: "Carpenter",
-        price: "500",
-        icon: "fa-hammer",
-        color: "#2e7d32",
-        shortDesc: "Expert furniture repair, assembly & custom woodwork at your doorstep.",
-        about: "Our certified carpenters bring 5+ years of experience to every job. From fixing wobbly tables to building custom shelves, we use premium materials and finish every project with perfection.",
-        includes: [
-            "Furniture assembly & repair",
-            "Door & window installation",
-            "Custom shelves & cabinets",
-            "Wood polishing & restoration",
-            "Roof & floor woodwork"
-        ]
-    },
-    plumber: {
-        name: "Plumber",
-        price: "400",
-        icon: "fa-faucet-drip",
-        color: "#1565c0",
-        shortDesc: "Leak fixing, pipe installation & complete bathroom solutions.",
-        about: "Professional plumbers who solve every water-related problem quickly and cleanly. From small leaks to full bathroom renovation — we do it all.",
-        includes: [
-            "Leak detection & repair",
-            "Pipe installation & replacement",
-            "Bathroom & kitchen fittings",
-            "Water heater repair",
-            "Drainage cleaning"
-        ]
-    },
-    electrician: {
-        name: "Electrician",
-        price: "450",
-        icon: "fa-bolt",
-        color: "#f59e0b",
-        shortDesc: "Wiring, fan/light installation & full electrical safety checks.",
-        about: "Certified electricians with safety-first approach. We handle everything from simple bulb changes to complete house wiring.",
-        includes: [
-            "Wiring & rewiring",
-            "Fan & light installation",
-            "Appliance repair",
-            "Circuit breaker fixes",
-            "Full electrical safety audit"
-        ]
-    },
-    mason: {
-        name: "Mason",
-        price: "600",
-        icon: "fa-trowel-bricks",
-        color: "#8d5524",
-        shortDesc: "Brickwork, tiling, plastering & structural repairs.",
-        about: "Skilled masons who build and repair with precision. Whether it's a small crack or full wall renovation, our team delivers perfect results.",
-        includes: [
-            "Brick & block work",
-            "Tile & marble installation",
-            "Wall plastering",
-            "Concrete repair",
-            "Staircase & pillar construction"
-        ]
-    },
-    gardener: {
-        name: "Gardener",
-        price: "350",
-        icon: "fa-seedling",
-        color: "#059669",
-        shortDesc: "Lawn care, plant maintenance & beautiful garden landscaping.",
-        about: "Passionate gardeners who turn your outdoor space into a green paradise. We take care of plants, lawns and seasonal flowers.",
-        includes: [
-            "Lawn mowing & maintenance",
-            "Planting & pruning",
-            "Garden landscaping",
-            "Pest control",
-            "Seasonal flower beds"
-        ]
-    },
-    "home-repair": {
-        name: "Home Repair",
-        price: "450",
-        icon: "fa-house-circle-check",
-        color: "#7c3aed",
-        shortDesc: "All-in-one home maintenance & quick repair solutions.",
-        about: "Your one-stop handyman service. From painting to minor electrical or plumbing fixes — we handle everything under one roof.",
-        includes: [
-            "Minor home repairs",
-            "Painting & wall work",
-            "Cleaning & organizing",
-            "Furniture fixing",
-            "General handyman services"
-        ]
-    }
-};
-
-/**
- * Loads and renders service details based on URL parameter ?service=...
- */
-function loadServiceDetail() {
-    const urlParams = new URLSearchParams(window.location.search);
-    let serviceKey = urlParams.get('service')?.toLowerCase().trim() || 'carpenter';
-
-    // Fallback to carpenter if invalid service
-    if (!serviceDatabase[serviceKey]) {
-        serviceKey = 'carpenter';
-        console.warn(`Service "${serviceKey}" not found → fallback to carpenter`);
-    }
-
-    const service = serviceDatabase[serviceKey];
-
-    // ─── Update page title ───────────────────────────────────────
-    document.title = `${service.name} Service — Shohoj Sheba`;
-
-    // ─── Hero section ─────────────────────────────────────────────
-    const nameEl       = document.getElementById('serviceName');
-    const descEl       = document.getElementById('serviceShortDesc');
-    const priceEl      = document.getElementById('servicePrice');
-    const iconEl       = document.getElementById('heroIcon');
-
-    if (nameEl)  nameEl.textContent = service.name;
-    if (descEl)  descEl.textContent = service.shortDesc;
-    if (priceEl) priceEl.innerHTML  = `Starts from <strong>৳${service.price}</strong>`;
-
-    if (iconEl) {
-        iconEl.innerHTML = `<i class="fa-solid ${service.icon}"></i>`;
-        iconEl.style.background = `linear-gradient(135deg, white, #f8fafc)`;
-        iconEl.style.color = service.color;
-    }
-
-    // ─── About section ────────────────────────────────────────────
-    const aboutEl = document.getElementById('aboutText');
-    if (aboutEl) aboutEl.textContent = service.about;
-
-    // ─── What we offer / includes grid ────────────────────────────
-    const gridEl = document.getElementById('includesGrid');
-    if (gridEl) {
-        gridEl.innerHTML = service.includes
-            .map(item => `
-                <div class="offer-item">
-                    <i class="fa-solid fa-check-circle" style="color:${service.color};"></i>
-                    <span>${item}</span>
-                </div>
-            `)
-            .join('');
-    }
-
-    console.log(`Loaded service: ${service.name}`);
-}
-
-// ────────────────────────────────────────────────────────────────
-// Initialize when page is ready
-// ────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    loadServiceDetail();
 
-    // Optional: hamburger menu support (if you have mobile nav on this page)
-    const hamburger = document.getElementById('hamburger');
-    const navMenu   = document.querySelector('nav');
-    if (hamburger && navMenu) {
-        hamburger.addEventListener('click', () => {
-            navMenu.classList.toggle('open');
-            hamburger.classList.toggle('active');
+    // Tab / section navigation
+    document.querySelectorAll('.sidebar-nav .nav-item').forEach(item => {
+        item.addEventListener('click', e => {
+            e.preventDefault();
+            const page = item.dataset.page;
+            if (!page) return;
+
+            document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active'));
+            const target = document.getElementById(page + '-page');
+            if (target) target.classList.add('active');
+
+            document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+
+            document.querySelector('#pageTitle').textContent = 
+                page.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         });
-    }
+    });
+
+    // Mobile sidebar toggle
+    const toggles = ['#sidebarToggle', '#mobileMenuBtn'];
+    toggles.forEach(sel => {
+        document.querySelector(sel)?.addEventListener('click', () => {
+            document.querySelector('.sidebar')?.classList.toggle('mobile-open');
+        });
+    });
+
 });
