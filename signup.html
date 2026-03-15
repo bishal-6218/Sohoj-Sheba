@@ -5,16 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign Up — Shohoj Sheba</title>
     <link rel="stylesheet" href="login.css">
+    <link rel="stylesheet" href="signup.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
 
+<!-- Navbar -->
 <header>
     <div class="navbar">
         <a href="index.html" class="logo">
-            <div class="logo-mark"><i class="fa-solid fa-house-chimney"></i></div>
-            <span>Shohoj<span class="logo-accent">Sheba</span></span>
+            <div class="logo-mark">
+                <i class="fa-solid fa-house-chimney"></i>
+            </div>
+            <span>Sohoj<span class="logo-accent">Sheba</span></span>
         </a>
         <div class="nav-actions">
             <span class="nav-hint">Already have an account?</span>
@@ -23,75 +27,435 @@
     </div>
 </header>
 
-<main class="login-page">
-    <div class="login-left" id="sidePanel">
-        <div class="login-left-overlay"></div>
-        <div class="login-left-content">
-            <div class="left-badge"><i class="fa-solid fa-star"></i> Join Us</div>
-            <h2>Start Your Journey<br>with <span>Shohoj Sheba</span></h2>
-            <p>Access the best home services or grow your business as a professional provider.</p>
-        </div>
-    </div>
-
-    <div class="login-right">
-        <div class="login-form-wrap">
-            <h1 class="form-title">Create Account</h1>
-            
-            <div class="role-toggle">
-                <input type="radio" name="role" id="role-user" value="user" checked>
-                <label for="role-user" class="role-label"><i class="fa-solid fa-user"></i><span>User</span></label>
-                <input type="radio" name="role" id="role-worker" value="worker">
-                <label for="role-worker" class="role-label"><i class="fa-solid fa-hard-hat"></i><span>Worker</span></label>
+<!-- Signup Page -->
+<main class="signup-page">
+    <div class="signup-container">
+        
+        <!-- Progress Indicator -->
+        <div class="progress-bar">
+            <div class="progress-step active" data-step="1">
+                <div class="step-number">1</div>
+                <span>Account Type</span>
             </div>
+            <div class="progress-step" data-step="2">
+                <div class="step-number">2</div>
+                <span>Personal Info</span>
+            </div>
+            <div class="progress-step" data-step="3">
+                <div class="step-number">3</div>
+                <span>Contact Details</span>
+            </div>
+            <div class="progress-step" data-step="4">
+                <div class="step-number">4</div>
+                <span>Professional Info</span>
+            </div>
+        </div>
 
-            <form class="login-form" onsubmit="handleSignup(event)">
-                <div class="form-group">
-                    <label for="fullname">Full Name</label>
-                    <div class="input-wrap">
-                        <i class="fa-solid fa-user-tag input-icon"></i>
-                        <input type="text" id="fullname" placeholder="Enter your full name" required>
+        <!-- Form Container -->
+        <div class="signup-form-container">
+            <form id="signupForm" class="signup-form">
+
+                <!-- STEP 1: Account Type -->
+                <div class="form-step active" data-step="1">
+                    <div class="step-header">
+                        <h2>Choose Account Type</h2>
+                        <p>Select how you want to use Shohoj Sheba</p>
                     </div>
+
+                    <div class="role-selection">
+                        <label class="role-card">
+                            <input type="radio" name="role" value="user" checked>
+                            <div class="role-card-content">
+                                <div class="role-icon user-icon">
+                                    <i class="fa-solid fa-user"></i>
+                                </div>
+                                <h3>User Account</h3>
+                                <p>Book home services and connect with professionals</p>
+                                <ul class="role-features">
+                                    <li><i class="fa-solid fa-check"></i> Book any service</li>
+                                    <li><i class="fa-solid fa-check"></i> Track bookings</li>
+                                    <li><i class="fa-solid fa-check"></i> Rate workers</li>
+                                </ul>
+                            </div>
+                        </label>
+
+                        <label class="role-card">
+                            <input type="radio" name="role" value="worker">
+                            <div class="role-card-content">
+                                <div class="role-icon worker-icon">
+                                    <i class="fa-solid fa-hard-hat"></i>
+                                </div>
+                                <h3>Worker Account</h3>
+                                <p>Offer your services and grow your business</p>
+                                <ul class="role-features">
+                                    <li><i class="fa-solid fa-check"></i> Accept job requests</li>
+                                    <li><i class="fa-solid fa-check"></i> Manage schedule</li>
+                                    <li><i class="fa-solid fa-check"></i> Earn money</li>
+                                </ul>
+                            </div>
+                        </label>
+                    </div>
+
+                    <button type="button" class="btn-next" onclick="nextStep()">
+                        Continue <i class="fa-solid fa-arrow-right"></i>
+                    </button>
                 </div>
 
-                <div class="form-group">
-                    <label for="email">Email Address</label>
-                    <div class="input-wrap">
-                        <i class="fa-solid fa-envelope input-icon"></i>
-                        <input type="email" id="email" placeholder="name@example.com" required>
+                <!-- STEP 2: Personal Information -->
+                <div class="form-step" data-step="2">
+                    <div class="step-header">
+                        <h2>Personal Information</h2>
+                        <p>Tell us about yourself</p>
                     </div>
-                </div>
 
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <div class="input-wrap">
-                        <i class="fa-solid fa-lock input-icon"></i>
-                        <input type="password" id="password" placeholder="Min. 6 characters" required>
-                        <button type="button" class="toggle-pw" onclick="togglePassword()">
-                            <i class="fa-solid fa-eye" id="eyeIcon"></i>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>First Name <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-user input-icon"></i>
+                                <input type="text" name="firstName" placeholder="Enter first name" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Last Name <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-user input-icon"></i>
+                                <input type="text" name="lastName" placeholder="Enter last name" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label>Email Address <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-envelope input-icon"></i>
+                                <input type="email" name="email" placeholder="your.email@example.com" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Password <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-lock input-icon"></i>
+                                <input type="password" name="password" id="password" placeholder="Min. 6 characters" required>
+                                <button type="button" class="toggle-pw" onclick="togglePassword('password', 'eyeIcon1')">
+                                    <i class="fa-solid fa-eye" id="eyeIcon1"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Confirm Password <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-lock input-icon"></i>
+                                <input type="password" name="confirmPassword" id="confirmPassword" placeholder="Re-enter password" required>
+                                <button type="button" class="toggle-pw" onclick="togglePassword('confirmPassword', 'eyeIcon2')">
+                                    <i class="fa-solid fa-eye" id="eyeIcon2"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Date of Birth <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-calendar input-icon"></i>
+                                <input type="date" name="dateOfBirth" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Gender <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-venus-mars input-icon"></i>
+                                <select name="gender" required>
+                                    <option value="">Select gender</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                    <option value="prefer-not-to-say">Prefer not to say</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step-actions">
+                        <button type="button" class="btn-back" onclick="prevStep()">
+                            <i class="fa-solid fa-arrow-left"></i> Back
+                        </button>
+                        <button type="button" class="btn-next" onclick="nextStep()">
+                            Continue <i class="fa-solid fa-arrow-right"></i>
                         </button>
                     </div>
                 </div>
 
-                <button type="submit" class="login-btn" id="signupBtn">
-                    <span class="btn-text">Sign Up</span>
-                    <span class="btn-loader" style="display:none;"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
-                </button>
+                <!-- STEP 3: Contact & Address -->
+                <div class="form-step" data-step="3">
+                    <div class="step-header">
+                        <h2>Contact & Address Details</h2>
+                        <p>How can we reach you?</p>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group full-width">
+                            <label>Phone Number <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-phone input-icon"></i>
+                                <input type="tel" name="phone" placeholder="+880 1XXX-XXXXXX" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>WhatsApp Number</label>
+                            <div class="input-wrap">
+                                <i class="fa-brands fa-whatsapp input-icon"></i>
+                                <input type="tel" name="whatsapp" placeholder="+880 1XXX-XXXXXX">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Alternative Phone</label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-phone input-icon"></i>
+                                <input type="tel" name="alternativePhone" placeholder="+880 1XXX-XXXXXX">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Country <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-globe input-icon"></i>
+                                <select name="country" required>
+                                    <option value="">Select country</option>
+                                    <option value="bangladesh" selected>Bangladesh</option>
+                                    <option value="india">India</option>
+                                    <option value="pakistan">Pakistan</option>
+                                    <option value="nepal">Nepal</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>City <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-city input-icon"></i>
+                                <select name="city" required>
+                                    <option value="">Select division</option>
+                                    <option value="dhaka">Dhaka</option>
+                                    <option value="chittagong">Chittagong</option>
+                                    <option value="sylhet">Sylhet</option>
+                                    <option value="rajshahi">Rajshahi</option>
+                                    <option value="khulna">Khulna</option>
+                                    <option value="barisal">Barisal</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Area/District <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-map-pin input-icon"></i>
+                                <input type="text" name="area" placeholder="e.g., Mirpur, Gulshan" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Postal Code</label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-mailbox input-icon"></i>
+                                <input type="text" name="postalCode" placeholder="Enter postal code">
+                            </div>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label>Street Address <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <i class="fa-solid fa-location-dot input-icon"></i>
+                                <textarea name="address" rows="3" placeholder="House/Flat number, Street name, Landmark" required></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step-actions">
+                        <button type="button" class="btn-back" onclick="prevStep()">
+                            <i class="fa-solid fa-arrow-left"></i> Back
+                        </button>
+                        <button type="button" class="btn-next" onclick="nextStep()">
+                            Continue <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- STEP 4: Professional Information (For Workers) -->
+                <div class="form-step" data-step="4">
+                    <div class="step-header">
+                        <h2>Professional Information</h2>
+                        <p id="professionalSubtitle">Additional details to complete your profile</p>
+                    </div>
+
+                    <!-- Worker-specific fields -->
+                    <div class="worker-fields">
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label>Work Experience <span class="required">*</span></label>
+                                <div class="input-wrap">
+                                    <i class="fa-solid fa-briefcase input-icon"></i>
+                                    <select name="experience" required>
+                                        <option value="">Select experience</option>
+                                        <option value="less-than-1">Less than 1 year</option>
+                                        <option value="1-2">1-2 years</option>
+                                        <option value="3-5">3-5 years</option>
+                                        <option value="5-10">5-10 years</option>
+                                        <option value="more-than-10">More than 10 years</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label>Service Categories <span class="required">*</span></label>
+                                <div class="checkbox-grid">
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" name="services[]" value="carpenter">
+                                        <span><i class="fa-solid fa-hammer"></i> Carpenter</span>
+                                    </label>
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" name="services[]" value="plumber">
+                                        <span><i class="fa-solid fa-faucet-drip"></i> Plumber</span>
+                                    </label>
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" name="services[]" value="electrician">
+                                        <span><i class="fa-solid fa-bolt"></i> Electrician</span>
+                                    </label>
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" name="services[]" value="mason">
+                                        <span><i class="fa-solid fa-trowel-bricks"></i> Mason</span>
+                                    </label>
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" name="services[]" value="gardener">
+                                        <span><i class="fa-solid fa-seedling"></i> Gardener</span>
+                                    </label>
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" name="services[]" value="home-repair">
+                                        <span><i class="fa-solid fa-house-circle-check"></i> Home Repair</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label>Skills & Expertise</label>
+                                <div class="input-wrap">
+                                    <i class="fa-solid fa-wrench input-icon"></i>
+                                    <textarea name="skills" rows="3" placeholder="Describe your skills, certifications, and expertise..."></textarea>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>NID/Passport Number <span class="required">*</span></label>
+                                <div class="input-wrap">
+                                    <i class="fa-solid fa-id-card input-icon"></i>
+                                    <input type="text" name="nidNumber" placeholder="Enter NID or Passport number" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Trade License (if any)</label>
+                                <div class="input-wrap">
+                                    <i class="fa-solid fa-certificate input-icon"></i>
+                                    <input type="text" name="tradeLicense" placeholder="Enter license number">
+                                </div>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label>Upload Profile Photo</label>
+                                <div class="file-upload">
+                                    <input type="file" name="profilePhoto" id="profilePhoto" accept="image/*">
+                                    <label for="profilePhoto" class="file-upload-label">
+                                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                                        <span>Click to upload or drag and drop</span>
+                                        <small>JPG, PNG or GIF (max. 5MB)</small>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label>Upload NID/Passport Photo</label>
+                                <div class="file-upload">
+                                    <input type="file" name="nidPhoto" id="nidPhoto" accept="image/*">
+                                    <label for="nidPhoto" class="file-upload-label">
+                                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                                        <span>Click to upload ID document</span>
+                                        <small>Clear photo of your ID (max. 5MB)</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- User-specific fields (minimal) -->
+                    <div class="user-fields" style="display: none;">
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label>How did you hear about us?</label>
+                                <div class="input-wrap">
+                                    <i class="fa-solid fa-bullhorn input-icon"></i>
+                                    <select name="referralSource">
+                                        <option value="">Select source</option>
+                                        <option value="search-engine">Search Engine (Google, etc.)</option>
+                                        <option value="social-media">Social Media</option>
+                                        <option value="friend">Friend or Family</option>
+                                        <option value="advertisement">Advertisement</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label>Special Requirements or Preferences</label>
+                                <div class="input-wrap">
+                                    <i class="fa-solid fa-note-sticky input-icon"></i>
+                                    <textarea name="preferences" rows="3" placeholder="Any specific preferences or requirements..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Terms & Conditions -->
+                    <div class="terms-section">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="terms" required>
+                            <span>I agree to the <a href="#" class="link">Terms & Conditions</a> and <a href="#" class="link">Privacy Policy</a></span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="newsletter">
+                            <span>Send me updates and promotional offers via email</span>
+                        </label>
+                    </div>
+
+                    <div class="step-actions">
+                        <button type="button" class="btn-back" onclick="prevStep()">
+                            <i class="fa-solid fa-arrow-left"></i> Back
+                        </button>
+                        <button type="submit" class="btn-submit">
+                            <span class="btn-text">
+                                <i class="fa-solid fa-check"></i> Create Account
+                            </span>
+                            <span class="btn-loader" style="display:none;">
+                                <i class="fa-solid fa-circle-notch fa-spin"></i> Creating Account...
+                            </span>
+                        </button>
+                    </div>
+                </div>
+
             </form>
-            <p class="signup-prompt">Already have an account? <a href="login.html" class="signup-link">Log In</a></p>
+        </div>
+
+        <!-- Already have account link -->
+        <div class="signup-footer">
+            <p>Already have an account? <a href="login.html" class="link">Log In</a></p>
         </div>
     </div>
 </main>
 
-<script src="auth.js"></script>
-<script>
-    // Theme switching logic for Worker vs User visual modes
-    document.querySelectorAll('input[name="role"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            const sidePanel = document.getElementById('sidePanel');
-            if (this.value === 'worker') sidePanel.classList.add('worker-mode');
-            else sidePanel.classList.remove('worker-mode');
-        });
-    });
-</script>
+<script src="signup.js"></script>
+
 </body>
 </html>
