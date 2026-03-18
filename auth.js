@@ -1,9 +1,3 @@
-/* =============================================
-   SHOHOJ SHEBA — AUTH.JS
-   Auth logic — localStorage removed.
-   TODO: Replace fetch() stubs with real PHP endpoints.
-   ============================================= */
-
 // ─── Signup ───────────────────────────────────
 function handleSignup(e) {
     e.preventDefault();
