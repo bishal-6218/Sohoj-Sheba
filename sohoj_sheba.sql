@@ -1,10 +1,3 @@
--- ============================================================
--- Sohoj Sheba (MySQL) Database Schema + Seed Data
--- Import this file in phpMyAdmin or MySQL CLI.
---
--- Tested targets: MySQL 8.x / MariaDB 10.4+ (XAMPP friendly)
--- Charset: utf8mb4
--- ============================================================
 
 SET NAMES utf8mb4;
 SET time_zone = "+00:00";
