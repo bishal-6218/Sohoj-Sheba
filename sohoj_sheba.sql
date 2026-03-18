@@ -207,3 +207,11 @@ ON DUPLICATE KEY UPDATE
   `is_active` = VALUES(`is_active`),
   `updated_at` = CURRENT_TIMESTAMP;
 
+
+
+ALTER TABLE `users`
+  ADD COLUMN IF NOT EXISTS `preferred_language` VARCHAR(32) NULL AFTER `gender`,
+  ADD COLUMN IF NOT EXISTS `referral_source` VARCHAR(64) NULL AFTER `preferred_language`,
+  ADD COLUMN IF NOT EXISTS `preferences_text` TEXT NULL AFTER `referral_source`,
+  ADD COLUMN IF NOT EXISTS `newsletter_opt_in` TINYINT(1) NOT NULL DEFAULT 0 AFTER `preferences_text`,
+  ADD COLUMN IF NOT EXISTS `terms_accepted_at` DATETIME NULL AFTER `newsletter_opt_in`;

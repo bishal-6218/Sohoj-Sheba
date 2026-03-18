@@ -1,8 +1,3 @@
-/* =============================================
-   SHOHOJ SHEBA — SIGNUP.JS
-   Stepper is 100% JS driven.
-   updateStepper() is the single source of truth.
-   ============================================= */
 
 var currentStep = 1;
 var TOTAL_STEPS  = 4;
@@ -203,26 +198,18 @@ function handleSubmit() {
     if (btnText)   btnText.style.display   = 'none';
     if (btnLoader) btnLoader.style.display = 'inline-flex';
 
-    // Collect minimal fields needed by api/signup.php
-    var roleInput = document.querySelector('input[name="role"]:checked');
-    var role      = roleInput ? roleInput.value : 'user';
+    var form = document.getElementById('signupForm');
+    var fd = new FormData(form);
 
-    var firstName = document.querySelector('[name="firstName"]')?.value.trim() || '';
-    var lastName  = document.querySelector('[name="lastName"]')?.value.trim()  || '';
-    var email     = document.querySelector('[name="email"]')?.value.trim()     || '';
-    var password  = document.querySelector('[name="password"]')?.value         || '';
-
+    // Also include a single "name" field for backend convenience
+    var firstName = (form.querySelector('[name="firstName"]')?.value || '').trim();
+    var lastName  = (form.querySelector('[name="lastName"]')?.value  || '').trim();
     var fullName = (firstName + ' ' + lastName).trim() || firstName || lastName || 'User';
+    fd.set('name', fullName);
 
     fetch('api/signup.php', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            name:     fullName,
-            email:    email,
-            password: password,
-            role:     role
-        })
+        body: fd
     })
     .then(function (r) { return r.json(); })
     .then(function (data) {
