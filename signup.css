@@ -368,6 +368,56 @@
 .file-upload-label span { font-size: 14px; font-weight: 600; color: var(--text); }
 .file-upload-label small { font-size: 12px; color: var(--muted); }
 
+/* Selected file feedback */
+.file-upload.has-file .file-upload-label {
+    border-style: solid;
+    border-color: #2e7d32;
+    background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%);
+    box-shadow: 0 4px 14px rgba(46, 125, 50, 0.12);
+}
+.file-upload.has-file .file-upload-label > i:first-child {
+    color: #16a34a;
+}
+
+.file-upload-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+    font-size: 13px;
+    font-weight: 500;
+}
+.file-upload-status[hidden] { display: none !important; }
+.file-upload-status .fu-icon {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #16a34a;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+.file-upload-status .fu-text { flex: 1; min-width: 0; }
+.file-upload-status .fu-text strong { word-break: break-all; }
+.file-upload-status .fu-meta { font-size: 12px; color: #047857; margin-top: 2px; }
+.file-upload-status .fu-preview {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    object-fit: cover;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    flex-shrink: 0;
+}
+
 /* ===========================
    TERMS
    =========================== */

@@ -28,7 +28,70 @@ document.addEventListener('DOMContentLoaded', function () {
         e.preventDefault();
         handleSubmit();
     });
+
+    setupFileUploadFeedback();
 });
+
+/* ─── File upload: show selected filename + preview ───────────────── */
+function setupFileUploadFeedback() {
+    function escapeHtml(s) {
+        if (!s) return '';
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+    function bind(inputId, wrapId, statusId) {
+        var input = document.getElementById(inputId);
+        var wrap = document.getElementById(wrapId);
+        var status = document.getElementById(statusId);
+        if (!input || !wrap || !status) return;
+
+        input.addEventListener('change', function () {
+            var file = input.files && input.files[0];
+            status.innerHTML = '';
+            if (!file) {
+                wrap.classList.remove('has-file');
+                status.hidden = true;
+                return;
+            }
+            wrap.classList.add('has-file');
+            status.hidden = false;
+
+            var icon = document.createElement('div');
+            icon.className = 'fu-icon';
+            icon.innerHTML = '<i class="fa-solid fa-check"></i>';
+
+            var textWrap = document.createElement('div');
+            textWrap.className = 'fu-text';
+            textWrap.innerHTML =
+                '<div>Photo ready to upload</div>' +
+                '<div class="fu-meta"><strong>' + escapeHtml(file.name) + '</strong> · ' + escapeHtml(formatSize(file.size)) + '</div>';
+
+            status.appendChild(icon);
+            status.appendChild(textWrap);
+
+            if (file.type && file.type.indexOf('image/') === 0) {
+                var reader = new FileReader();
+                reader.onload = function (ev) {
+                    var img = document.createElement('img');
+                    img.className = 'fu-preview';
+                    img.src = ev.target.result;
+                    img.alt = 'Preview';
+                    status.insertBefore(img, status.firstChild);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    bind('profilePhoto', 'profilePhotoWrap', 'profilePhotoStatus');
+    bind('nidPhoto', 'nidPhotoWrap', 'nidPhotoStatus');
+}
 
 /* ─── Navigation ────────────────────────────── */
 function nextStep() {
