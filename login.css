@@ -556,7 +556,7 @@ header {
 .btn-loader {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
 }
 
 /* Worker role — button turns green */
