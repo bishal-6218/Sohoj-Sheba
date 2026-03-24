@@ -28,6 +28,13 @@ CREATE TABLE IF NOT EXISTS `users` (
   `address` TEXT NULL,
   `date_of_birth` DATE NULL,
   `gender` ENUM('male','female','other','prefer-not-to-say') NULL,
+  `preferred_language` VARCHAR(32) NULL,
+  `referral_source` VARCHAR(64) NULL,
+  `preferences_text` TEXT NULL,
+  `newsletter_opt_in` TINYINT(1) NOT NULL DEFAULT 0,
+  `terms_accepted_at` DATETIME NULL,
+  `profile_photo_path` VARCHAR(255) NULL,
+  `nid_photo_path` VARCHAR(255) NULL,
   `status` ENUM('active','blocked') NOT NULL DEFAULT 'active',
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -214,4 +221,6 @@ ALTER TABLE `users`
   ADD COLUMN IF NOT EXISTS `referral_source` VARCHAR(64) NULL AFTER `preferred_language`,
   ADD COLUMN IF NOT EXISTS `preferences_text` TEXT NULL AFTER `referral_source`,
   ADD COLUMN IF NOT EXISTS `newsletter_opt_in` TINYINT(1) NOT NULL DEFAULT 0 AFTER `preferences_text`,
-  ADD COLUMN IF NOT EXISTS `terms_accepted_at` DATETIME NULL AFTER `newsletter_opt_in`;
+  ADD COLUMN IF NOT EXISTS `terms_accepted_at` DATETIME NULL AFTER `newsletter_opt_in`,
+  ADD COLUMN IF NOT EXISTS `profile_photo_path` VARCHAR(255) NULL AFTER `terms_accepted_at`,
+  ADD COLUMN IF NOT EXISTS `nid_photo_path` VARCHAR(255) NULL AFTER `profile_photo_path`;

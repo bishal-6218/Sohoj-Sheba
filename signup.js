@@ -91,6 +91,8 @@ function setupFileUploadFeedback() {
 
     bind('profilePhoto', 'profilePhotoWrap', 'profilePhotoStatus');
     bind('nidPhoto', 'nidPhotoWrap', 'nidPhotoStatus');
+    bind('userProfilePhoto', 'userProfilePhotoWrap', 'userProfilePhotoStatus');
+    bind('userNidPhoto', 'userNidPhotoWrap', 'userNidPhotoStatus');
 }
 
 /* ─── Navigation ────────────────────────────── */

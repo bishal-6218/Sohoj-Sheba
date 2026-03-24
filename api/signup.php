@@ -230,6 +230,31 @@ try {
         }
     }
 
+    // Save user profile photo and NID photo (for regular users)
+    if ($role === 'user') {
+        $allowed = ['image/jpeg','image/png','image/gif','image/webp'];
+        $max = 5 * 1024 * 1024;
+
+        $uploadsBase = realpath(dirname(__DIR__)) . DIRECTORY_SEPARATOR . 'uploads';
+        if ($uploadsBase === false) {
+            $uploadsBase = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads';
+        }
+
+        $userProfilePath = save_upload('userProfilePhoto', $uploadsBase . DIRECTORY_SEPARATOR . 'profiles', $allowed, $max);
+        $userNidPath     = save_upload('userNidPhoto',     $uploadsBase . DIRECTORY_SEPARATOR . 'nid',      $allowed, $max);
+
+        if ($userProfilePath !== null || $userNidPath !== null) {
+            $stmt = $pdo->prepare(
+                'UPDATE users SET profile_photo_path = ?, nid_photo_path = ? WHERE id = ?'
+            );
+            $stmt->execute([
+                $userProfilePath,
+                $userNidPath,
+                $userId,
+            ]);
+        }
+    }
+
     $pdo->commit();
 
     json_response([
