@@ -32,7 +32,8 @@ function handleGet(array $user): void {
                     country, city, area, postal_code, address,
                     date_of_birth, gender,
                     preferred_language, referral_source, preferences_text,
-                    newsletter_opt_in, created_at
+                    newsletter_opt_in, created_at,
+                    profile_photo_path, nid_photo_path
              FROM users WHERE id = ? LIMIT 1'
         );
         $stmt->execute([$user['id']]);
@@ -62,13 +63,15 @@ function handleGet(array $user): void {
             'preferences_text'   => $row['preferences_text'],
             'newsletter_opt_in'  => (bool)$row['newsletter_opt_in'],
             'member_since'       => $row['created_at'],
+            'profile_photo_path' => $row['profile_photo_path'],
+            'nid_photo_path'     => $row['nid_photo_path'],
         ];
 
         // Worker extras
         if ($row['role'] === 'worker') {
             $wStmt = $pdo->prepare(
                 'SELECT experience, skills, nid_number, trade_license,
-                        profile_photo_path, rating_avg, jobs_completed
+                        profile_photo_path, nid_photo_path, rating_avg, jobs_completed
                  FROM worker_profiles WHERE user_id = ? LIMIT 1'
             );
             $wStmt->execute([$user['id']]);
@@ -79,9 +82,15 @@ function handleGet(array $user): void {
                 $profile['skills']             = $wp['skills'];
                 $profile['nid_number']         = $wp['nid_number'];
                 $profile['trade_license']      = $wp['trade_license'];
-                $profile['profile_photo_path'] = $wp['profile_photo_path'];
                 $profile['rating_avg']         = (float)$wp['rating_avg'];
                 $profile['jobs_completed']     = (int)$wp['jobs_completed'];
+                // Prefer users.* paths; fallback to worker_profiles for legacy rows
+                if (empty($profile['profile_photo_path']) && !empty($wp['profile_photo_path'])) {
+                    $profile['profile_photo_path'] = $wp['profile_photo_path'];
+                }
+                if (empty($profile['nid_photo_path']) && !empty($wp['nid_photo_path'])) {
+                    $profile['nid_photo_path'] = $wp['nid_photo_path'];
+                }
             }
 
             // Services this worker offers — return both name (display) and slug (for checkboxes)
@@ -169,6 +178,26 @@ function handlePost(array $sessionUser): void {
             $userId,
         ]);
 
+        // ── User: profile / NID photo uploads ───────────────────────────────────
+        if ($role === 'user') {
+            $userProfilePath = saveUpload('profilePhoto', 'profiles');
+            $userNidPath     = saveUpload('userNidPhoto', 'nid');
+            if ($userNidPath === null) {
+                $userNidPath = saveUpload('nidPhoto', 'nid');
+            }
+
+            if ($userProfilePath !== null || $userNidPath !== null) {
+                $cur = $pdo->prepare('SELECT profile_photo_path, nid_photo_path FROM users WHERE id = ? LIMIT 1');
+                $cur->execute([$userId]);
+                $existing = $cur->fetch() ?: ['profile_photo_path' => null, 'nid_photo_path' => null];
+                $finalProfile = $userProfilePath ?? $existing['profile_photo_path'];
+                $finalNid     = $userNidPath ?? $existing['nid_photo_path'];
+                $pdo->prepare(
+                    'UPDATE users SET profile_photo_path = ?, nid_photo_path = ?, updated_at = NOW() WHERE id = ?'
+                )->execute([$finalProfile, $finalNid, $userId]);
+            }
+        }
+
         // ── Worker-only updates ───────────────────────────────────────────────
         if ($role === 'worker') {
             $experience   = $pv('experience');
@@ -177,7 +206,7 @@ function handlePost(array $sessionUser): void {
             $tradeLicense = $pv('tradeLicense');
 
             // Handle profile photo upload
-            $profilePath = saveUpload('profilePhoto');
+            $profilePath = saveUpload('profilePhoto', 'profiles');
 
             if ($profilePath !== null) {
                 // New photo — include it in the update
@@ -191,6 +220,7 @@ function handlePost(array $sessionUser): void {
                     $orNull($nidNumber),  $orNull($tradeLicense),
                     $profilePath, $userId,
                 ]);
+                $pdo->prepare('UPDATE users SET profile_photo_path = ? WHERE id = ?')->execute([$profilePath, $userId]);
             } else {
                 // No new photo — leave existing photo untouched
                 $pdo->prepare(
@@ -228,7 +258,17 @@ function handlePost(array $sessionUser): void {
         // Keep session name in sync so sidebar/topbar shows updated name immediately
         $_SESSION['user']['name'] = $name;
 
-        json_response(['success' => true, 'message' => 'Profile updated successfully.']);
+        $photoStmt = $pdo->prepare('SELECT profile_photo_path FROM users WHERE id = ? LIMIT 1');
+        $photoStmt->execute([$userId]);
+        $photoRow = $photoStmt->fetch();
+        $sessionPhoto = $photoRow['profile_photo_path'] ?? null;
+        $_SESSION['user']['profile_photo_path'] = $sessionPhoto;
+
+        json_response([
+            'success'              => true,
+            'message'              => 'Profile updated successfully.',
+            'profile_photo_path'   => $sessionPhoto,
+        ]);
 
     } catch (Throwable $e) {
         if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
@@ -240,7 +280,7 @@ function handlePost(array $sessionUser): void {
 // ══════════════════════════════════════════════════════════════════════════════
 // Helper — validate and save a file upload, return web-relative path or null
 // ══════════════════════════════════════════════════════════════════════════════
-function saveUpload(string $field): ?string {
+function saveUpload(string $field, string $subdir = 'profiles'): ?string {
     if (!isset($_FILES[$field])) return null;
     $f = $_FILES[$field];
 
@@ -256,8 +296,9 @@ function saveUpload(string $field): ?string {
     $extMap = ['image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/webp' => '.webp'];
     $ext    = $extMap[$mime] ?? '.jpg';
 
+    $subdir = preg_replace('/[^a-z0-9_-]/i', '', $subdir) ?: 'profiles';
     $targetDir = (realpath(dirname(__DIR__)) ?: dirname(__DIR__))
-                 . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'profiles';
+                 . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . $subdir;
 
     if (!is_dir($targetDir)) mkdir($targetDir, 0777, true);
 

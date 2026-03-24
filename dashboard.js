@@ -33,6 +33,7 @@ const SohojShebaDashboard = {
         set('sidebarUserName',  user.name);
         set('sidebarUserEmail', user.email);
         set('profileName',      user.name);
+        this._setProfilePhoto(user.profile_photo_path);
     },
 
     // ─── Load full profile ────────────────────────────
@@ -82,6 +83,7 @@ const SohojShebaDashboard = {
         s('profileLanguage', this._cap(p.preferred_language));
         s('profileReferral', this._cap(p.referral_source));
         s('profilePreferences', p.preferences_text);
+        this._setProfilePhoto(p.profile_photo_path);
     },
 
     // ─── Populate WORKER profile display ──────────────
@@ -109,16 +111,57 @@ const SohojShebaDashboard = {
         this._setProfilePhoto(p.profile_photo_path);
     },
 
+    _photoUrl(path) {
+        if (!path || String(path).trim() === '') return '';
+        let p = String(path).trim().replace(/\\/g, '/');
+        if (/^https?:\/\//i.test(p)) return p;
+        // If DB stored a full filesystem path, keep only from uploads/ onward
+        const m = p.match(/(uploads\/[^?#]+)/i);
+        if (m) p = m[1];
+        else if (!/^uploads\//i.test(p) && p.includes('/uploads/')) {
+            const i = p.toLowerCase().indexOf('/uploads/');
+            p = p.slice(i + 1);
+        }
+        // Leading "/" makes URL() resolve to site root and breaks apps in subfolders
+        if (p.startsWith('/')) p = p.replace(/^\/+/, '');
+        try {
+            return new URL(p, window.location.href).href;
+        } catch {
+            return p;
+        }
+    },
+
     _setProfilePhoto(photoPath) {
-        if (!photoPath || photoPath.trim() === '') return;
-        const img = (alt) => `<img src="${photoPath}" alt="${alt}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        const url = this._photoUrl(photoPath);
+        if (!url) return;
+
         const applyImg = (sel, alt) => {
             const el = document.querySelector(sel);
-            if (el) { el.innerHTML = img(alt); el.style.padding = '0'; el.style.overflow = 'hidden'; }
+            if (!el) return;
+            el.innerHTML = '';
+            el.style.padding = '0';
+            el.style.overflow = 'hidden';
+            el.style.background = 'transparent';
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = alt || 'Profile';
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;';
+            img.onerror = () => {
+                const isWorker = document.body.classList.contains('worker-dashboard');
+                el.innerHTML = isWorker
+                    ? '<i class="fa-solid fa-hard-hat"></i>'
+                    : '<i class="fa-solid fa-user"></i>';
+                el.style.padding = '';
+                el.style.background = '';
+            };
+            el.appendChild(img);
         };
-        applyImg('.profile-ava',       'Profile Photo');
-        applyImg('.sidebar .user-ava', '');
-        applyImg('.topbar-avatar',     '');
+
+        applyImg('.profile-ava',       'Profile photo');
+        applyImg('.sidebar .user-ava', 'Profile photo');
+        applyImg('.topbar-avatar',     'Profile photo');
     },
 
     // ══════════════════════════════════════════════════
@@ -187,7 +230,26 @@ const SohojShebaDashboard = {
                     <label class="ep-check-item"><input type="checkbox" name="services" value="gardener"><span><i class="fa-solid fa-seedling"></i> Gardener</span></label>
                     <label class="ep-check-item"><input type="checkbox" name="services" value="home-repair"><span><i class="fa-solid fa-house-circle-check"></i> Home Repair</span></label>
                 </div>
-            </div>` : `
+            </div>            ` : `
+            <div class="ep-section-title">Profile photo</div>
+            <div class="ep-row">
+                <div class="ep-group">
+                    <label>Change profile photo</label>
+                    <div class="ep-input-wrap ep-file-wrap">
+                        <i class="fa-solid fa-camera ep-icon"></i>
+                        <input type="file" name="profilePhoto" id="ep_user_profilePhoto" accept="image/*"
+                            style="flex:1;padding:10px 0;background:transparent;border:none;outline:none;font-size:13px;color:var(--muted);">
+                    </div>
+                </div>
+                <div class="ep-group">
+                    <label>NID / ID photo (optional)</label>
+                    <div class="ep-input-wrap ep-file-wrap">
+                        <i class="fa-solid fa-id-card ep-icon"></i>
+                        <input type="file" name="userNidPhoto" id="ep_user_nidPhoto" accept="image/*"
+                            style="flex:1;padding:10px 0;background:transparent;border:none;outline:none;font-size:13px;color:var(--muted);">
+                    </div>
+                </div>
+            </div>
             <div class="ep-section-title">Preferences</div>
             <div class="ep-row">
                 <div class="ep-group">
@@ -529,6 +591,10 @@ const SohojShebaDashboard = {
                 if (data.success) {
                     this.closeEditModal();
                     this._showToast('Profile updated successfully!');
+                    if (data.profile_photo_path) {
+                        if (this.currentUser) this.currentUser.profile_photo_path = data.profile_photo_path;
+                        this._setProfilePhoto(data.profile_photo_path);
+                    }
                     this.loadProfile();
                 } else {
                     this._showAlert('epAlert', 'error', data.message || 'Failed to save changes.');

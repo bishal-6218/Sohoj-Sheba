@@ -211,6 +211,13 @@ try {
             $nidPath,
         ]);
 
+        // Mirror paths on `users` (schema: sohoj_sheba.sql)
+        $pdo->prepare('UPDATE users SET profile_photo_path = ?, nid_photo_path = ? WHERE id = ?')->execute([
+            $profilePath,
+            $nidPath,
+            $userId,
+        ]);
+
         // Map selected services[] (slug) -> worker_services rows
         $selected = $data['services'] ?? ($data['services[]'] ?? null);
         if (is_array($selected)) {
@@ -240,12 +247,14 @@ try {
             $uploadsBase = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads';
         }
 
-        $userProfilePath = save_upload('userProfilePhoto', $uploadsBase . DIRECTORY_SEPARATOR . 'profiles', $allowed, $max);
-        $userNidPath     = save_upload('userNidPhoto',     $uploadsBase . DIRECTORY_SEPARATOR . 'nid',      $allowed, $max);
+        $userProfilePath = save_upload('userProfilePhoto', $uploadsBase . DIRECTORY_SEPARATOR . 'profiles', $allowed, $max)
+            ?? save_upload('profilePhoto', $uploadsBase . DIRECTORY_SEPARATOR . 'profiles', $allowed, $max);
+        $userNidPath = save_upload('userNidPhoto', $uploadsBase . DIRECTORY_SEPARATOR . 'nid', $allowed, $max)
+            ?? save_upload('nidPhoto', $uploadsBase . DIRECTORY_SEPARATOR . 'nid', $allowed, $max);
 
         if ($userProfilePath !== null || $userNidPath !== null) {
             $stmt = $pdo->prepare(
-                'UPDATE users SET profile_photo_path = ?, nid_photo_path = ? WHERE id = ?'
+                'UPDATE users SET profile_photo_path = COALESCE(?, profile_photo_path), nid_photo_path = COALESCE(?, nid_photo_path) WHERE id = ?'
             );
             $stmt->execute([
                 $userProfilePath,

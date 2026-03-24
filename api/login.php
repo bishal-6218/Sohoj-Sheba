@@ -23,7 +23,7 @@ if ($email === '' || $password === '') {
 try {
     $pdo = db();
 
-    $stmt = $pdo->prepare('SELECT id, role, name, email, password_hash FROM users WHERE email = ? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT id, role, name, email, password_hash, profile_photo_path FROM users WHERE email = ? LIMIT 1');
     $stmt->execute([$email]);
     $user = $stmt->fetch();
 
@@ -40,11 +40,22 @@ try {
         json_response(['success' => false, 'message' => 'Selected account type does not match this email.'], 403);
     }
 
+    $photo = $user['profile_photo_path'] ?? null;
+    if ($user['role'] === 'worker' && ($photo === null || $photo === '')) {
+        $w = $pdo->prepare('SELECT profile_photo_path FROM worker_profiles WHERE user_id = ? LIMIT 1');
+        $w->execute([(int)$user['id']]);
+        $wp = $w->fetch();
+        if ($wp && !empty($wp['profile_photo_path'])) {
+            $photo = $wp['profile_photo_path'];
+        }
+    }
+
     $_SESSION['user'] = [
-        'id'    => (int)$user['id'],
-        'name'  => $user['name'],
-        'email' => $user['email'],
-        'role'  => $user['role'],
+        'id'                 => (int)$user['id'],
+        'name'               => $user['name'],
+        'email'              => $user['email'],
+        'role'               => $user['role'],
+        'profile_photo_path' => $photo,
     ];
 
     json_response([
