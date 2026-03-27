@@ -2,12 +2,19 @@ const SohojShebaDashboard = {
 
     currentUser: null,
     _profileData: null,
+    _userBookingsCache: [],
+    _workerPendingCache: [],
+    _workerMyCache: [],
+    _workerCompletedCache: [],
+    _userBookingFilter: 'all',
+    _workerJobsFilter: 'all',
 
     init() {
         this.checkAuth();
         this.setupNavigation();
         this.setupLogout();
         this.injectEditModal();
+        this.setupBooking();
     },
 
     // ─── Auth check ───────────────────────────────────
@@ -24,6 +31,8 @@ const SohojShebaDashboard = {
                 if (isWorkerPage) this.loadWorkerContent();
                 else this.loadUserContent();
                 this.loadProfile();
+                if (isWorkerPage) this.loadWorkerRequests();
+                else this.loadUserBookings();
             })
             .catch(() => { window.location.href = 'login.html'; });
     },
@@ -476,6 +485,54 @@ const SohojShebaDashboard = {
             </div>
         </div>
 
+        <!-- BOOKING MODAL (User) -->
+        <div id="bookingModal" class="ep-overlay" style="display:none;" aria-modal="true" role="dialog">
+            <div class="ep-modal">
+                <div class="ep-modal-head">
+                    <h2><i class="fa-solid fa-calendar-plus"></i> Book <span id="bk_serviceTitle">Service</span></h2>
+                    <button class="ep-close" id="bkCloseBtn">&times;</button>
+                </div>
+                <div class="ep-modal-body">
+                    <form id="bookingForm" autocomplete="off">
+                        <div class="ep-section-title">Select a professional</div>
+                        <div class="ep-checkbox-grid" id="bk_workers" style="grid-template-columns:1fr;"></div>
+
+                        <div class="ep-section-title" style="margin-top:18px;">Job details</div>
+                        <div class="ep-row">
+                            <div class="ep-group">
+                                <label>Preferred Date & Time (optional)</label>
+                                <div class="ep-input-wrap">
+                                    <i class="fa-solid fa-clock ep-icon"></i>
+                                    <input type="datetime-local" name="scheduled_at" id="bk_scheduledAt">
+                                </div>
+                            </div>
+                            <div class="ep-group">
+                                <label>Address <span class="ep-req">*</span></label>
+                                <div class="ep-input-wrap">
+                                    <i class="fa-solid fa-location-dot ep-icon"></i>
+                                    <input type="text" name="address_text" id="bk_address" placeholder="Your address" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ep-group ep-full" style="margin-top:12px;">
+                            <label>Notes (optional)</label>
+                            <div class="ep-input-wrap">
+                                <i class="fa-solid fa-note-sticky ep-icon"></i>
+                                <textarea name="notes" id="bk_notes" placeholder="Describe your problem (e.g. fan installation, leakage repair)"></textarea>
+                            </div>
+                        </div>
+
+                        <div class="ep-modal-foot">
+                            <button type="button" class="ep-btn-cancel" id="bkCancelBtn">Cancel</button>
+                            <button type="button" class="ep-btn-save" id="bkConfirmBtn" onclick="SohojShebaDashboard.submitBooking()">
+                                <span class="ep-btn-text"><i class="fa-solid fa-paper-plane"></i> Confirm Booking</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
         <!-- SUCCESS TOAST -->
         <div id="epToast" class="ep-toast" style="display:none;"></div>
         `);
@@ -553,14 +610,18 @@ const SohojShebaDashboard = {
         document.getElementById('epCancelBtn').addEventListener('click',  () => this.closeEditModal());
         document.getElementById('cpCloseBtn').addEventListener('click',   () => this.closeChangePwModal());
         document.getElementById('cpCancelBtn').addEventListener('click',  () => this.closeChangePwModal());
+        document.getElementById('bkCloseBtn')?.addEventListener('click',  () => this.closeBookingModal());
+        document.getElementById('bkCancelBtn')?.addEventListener('click', () => this.closeBookingModal());
 
         document.getElementById('editProfileModal').addEventListener('click', e => { if (e.target === e.currentTarget) this.closeEditModal(); });
         document.getElementById('changePwModal').addEventListener('click',    e => { if (e.target === e.currentTarget) this.closeChangePwModal(); });
+        document.getElementById('bookingModal')?.addEventListener('click',    e => { if (e.target === e.currentTarget) this.closeBookingModal(); });
 
         document.addEventListener('keydown', e => {
             if (e.key !== 'Escape') return;
             this.closeEditModal();
             this.closeChangePwModal();
+            this.closeBookingModal();
         });
 
         document.getElementById('editProfileForm').addEventListener('submit', e => { e.preventDefault(); this._submitEditProfile(); });
@@ -856,6 +917,10 @@ const SohojShebaDashboard = {
             };
             titleEl.textContent = labels[pageId] || pageId;
         }
+
+        // Lazy-load booking/job data per page
+        if (pageId === 'bookings') this.loadUserBookings();
+        if (pageId === 'jobs' || pageId === 'my-jobs') this.loadWorkerRequests();
     },
 
     loadUserContent() {
@@ -867,6 +932,400 @@ const SohojShebaDashboard = {
         set('statAvailable','—'); set('statCompleted','—'); set('statEarnings','—');
         set('earnTotal','—'); set('earnMonth','—'); set('earnPending','—'); set('earnAvailable','—');
         set('profileSpecialty','—'); set('profileJobs','0');
+    },
+
+    // ══════════════════════════════════════════════════
+    // BOOKINGS / JOB REQUESTS
+    // ══════════════════════════════════════════════════
+
+    setupBooking() {
+        // User: click "Book Now" on a service
+        document.addEventListener('click', e => {
+            const btn = e.target.closest('button.btn-book');
+            if (!btn) return;
+            const service = btn.getAttribute('data-service')
+                || btn.closest('.service-card')?.getAttribute('data-service');
+            if (!service) return;
+            this.openBookingModal(service);
+        });
+
+        this.setupFilters();
+    },
+
+    setupFilters() {
+        // User bookings filters
+        document.querySelectorAll('#bookings-page .filter-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const label = (btn.textContent || '').trim().toLowerCase();
+                this._userBookingFilter = label.includes('pending')
+                    ? 'pending'
+                    : label.includes('accepted')
+                        ? 'accepted'
+                        : label.includes('completed')
+                            ? 'completed'
+                            : 'all';
+                document.querySelectorAll('#bookings-page .filter-tab').forEach(x => x.classList.remove('active'));
+                btn.classList.add('active');
+                this.renderUserBookings();
+            });
+        });
+
+        // Worker jobs filters (All / Nearby / High Paying)
+        document.querySelectorAll('#jobs-page .filter-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const label = (btn.textContent || '').trim().toLowerCase();
+                this._workerJobsFilter = label.includes('nearby')
+                    ? 'nearby'
+                    : label.includes('high')
+                        ? 'high_paying'
+                        : 'all';
+                document.querySelectorAll('#jobs-page .filter-tab').forEach(x => x.classList.remove('active'));
+                btn.classList.add('active');
+                this.renderWorkerPendingJobs();
+            });
+        });
+    },
+
+    async _fetchJson(url, opts) {
+        const r = await fetch(url, opts);
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.message || 'Request failed');
+        return j;
+    },
+
+    openBookingModal(serviceSlug) {
+        if (!this.currentUser || this.currentUser.role !== 'user') return;
+        const modal = document.getElementById('bookingModal');
+        if (!modal) return;
+
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        modal.setAttribute('data-service', serviceSlug);
+
+        const serviceTitle = document.getElementById('bk_serviceTitle');
+        if (serviceTitle) serviceTitle.textContent = (serviceSlug || '').replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+        document.getElementById('bk_workers').innerHTML =
+            `<div class="empty-state" style="padding:16px;">
+                <div class="empty-icon"><i class="fa-solid fa-circle-notch fa-spin"></i></div>
+                <h4>Loading professionals...</h4>
+                <p>Please wait</p>
+             </div>`;
+
+        // Prefill address from loaded profile (if any)
+        const addr = this._profileData?.address || '';
+        const addrEl = document.getElementById('bk_address');
+        if (addrEl && !addrEl.value) addrEl.value = addr;
+
+        this._loadWorkersForService(serviceSlug);
+    },
+
+    closeBookingModal() {
+        const modal = document.getElementById('bookingModal');
+        if (!modal) return;
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    },
+
+    async _loadWorkersForService(serviceSlug) {
+        try {
+            const data = await this._fetchJson(`api/workers.php?service=${encodeURIComponent(serviceSlug)}`);
+            const list = Array.isArray(data.workers) ? data.workers : [];
+            const wrap = document.getElementById('bk_workers');
+            if (!wrap) return;
+
+            if (list.length === 0) {
+                wrap.innerHTML =
+                    `<div class="empty-state" style="padding:16px;">
+                        <div class="empty-icon"><i class="fa-solid fa-user-slash"></i></div>
+                        <h4>No professionals available</h4>
+                        <p>Try another service or check back later.</p>
+                     </div>`;
+                return;
+            }
+
+            wrap.innerHTML = list.map(w => {
+                const rating = (w.rating_avg && Number(w.rating_avg) > 0) ? Number(w.rating_avg).toFixed(1) : '—';
+                const photo = this._photoUrl(w.profile_photo_path || '');
+                const avatar = photo
+                    ? `<img src="${photo}" alt="Worker" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">`
+                    : `<div style="width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#f3f4f6;color:#6b7280;"><i class="fa-solid fa-user"></i></div>`;
+                return `
+                <label class="ep-check-item" style="display:flex;gap:10px;align-items:center;justify-content:flex-start;">
+                    <input type="radio" name="worker_user_id" value="${w.id}" required>
+                    ${avatar}
+                    <span style="display:flex;flex-direction:column;gap:2px;">
+                        <span style="font-weight:700;color:var(--text);">${this._escapeHtml(w.name || 'Worker')}</span>
+                        <span style="font-size:12px;color:var(--muted);">
+                            <i class="fa-solid fa-star" style="color:var(--accent);"></i> ${rating}
+                            <span style="margin:0 6px;opacity:.6;">•</span>
+                            Jobs: ${w.jobs_completed ?? 0}
+                        </span>
+                    </span>
+                </label>`;
+            }).join('');
+        } catch (e) {
+            document.getElementById('bk_workers').innerHTML =
+                `<div class="empty-state" style="padding:16px;">
+                    <div class="empty-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    <h4>Failed to load professionals</h4>
+                    <p>${this._escapeHtml(e.message || 'Please try again.')}</p>
+                 </div>`;
+        }
+    },
+
+    async submitBooking() {
+        const modal = document.getElementById('bookingModal');
+        const form = document.getElementById('bookingForm');
+        if (!modal || !form) return;
+
+        const service = modal.getAttribute('data-service') || '';
+        const fd = new FormData(form);
+        const workerUserId = fd.get('worker_user_id');
+        const scheduledAt = fd.get('scheduled_at');
+        const address = fd.get('address_text');
+        const notes = fd.get('notes');
+
+        if (!workerUserId) { this._showToast('Please select a professional.'); return; }
+
+        const btn = document.getElementById('bkConfirmBtn');
+        btn.disabled = true;
+        try {
+            const res = await this._fetchJson('api/bookings.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'create',
+                    service: service,
+                    worker_user_id: Number(workerUserId),
+                    scheduled_at: scheduledAt || null,
+                    address_text: address || null,
+                    notes: notes || null
+                })
+            });
+            this.closeBookingModal();
+            this._showToast('Booking request sent to worker!');
+            this.showPage('bookings');
+            this.loadUserBookings();
+        } catch (e) {
+            this._showToast(e.message || 'Failed to create booking.');
+        } finally {
+            btn.disabled = false;
+        }
+    },
+
+    async loadUserBookings() {
+        if (!this.currentUser || this.currentUser.role !== 'user') return;
+        const wrap = document.getElementById('userBookings');
+        if (!wrap) return;
+
+        wrap.innerHTML = `<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-circle-notch fa-spin"></i></div><h4>Loading...</h4><p>Please wait</p></div>`;
+        try {
+            const data = await this._fetchJson('api/bookings.php?scope=user');
+            const list = Array.isArray(data.bookings) ? data.bookings : [];
+            this._userBookingsCache = list;
+            this.renderUserBookings();
+        } catch (e) {
+            wrap.innerHTML = `<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><h4>Failed to load bookings</h4><p>${this._escapeHtml(e.message || '')}</p></div>`;
+        }
+    },
+
+    renderUserBookings() {
+        const wrap = document.getElementById('userBookings');
+        if (!wrap) return;
+        let list = Array.isArray(this._userBookingsCache) ? [...this._userBookingsCache] : [];
+        if (this._userBookingFilter !== 'all') {
+            list = list.filter(b => (String(b.display_status || b.status).toLowerCase() === this._userBookingFilter));
+        }
+        if (list.length === 0) {
+            wrap.innerHTML = `<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-calendar"></i></div><h4>No bookings found</h4><p>No ${this._escapeHtml(this._prettyStatus(this._userBookingFilter))} bookings right now.</p></div>`;
+        } else {
+            wrap.innerHTML = list.map(b => this._renderBookingCardForUser(b)).join('');
+        }
+
+        // Fill history with completed/cancelled/denied
+        const historyEl = document.getElementById('bookingHistory');
+        if (historyEl) {
+            const hist = (this._userBookingsCache || []).filter(b => ['completed', 'cancelled', 'denied'].includes(String(b.display_status || b.status).toLowerCase()));
+            historyEl.innerHTML = hist.length
+                ? hist.map(b => this._renderBookingCardForUser(b)).join('')
+                : `<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-clock-rotate-left"></i></div><h4>No history yet</h4><p>Your completed/cancelled bookings will appear here.</p></div>`;
+        }
+    },
+
+    async loadWorkerRequests() {
+        if (!this.currentUser || this.currentUser.role !== 'worker') return;
+        const wrapA = document.getElementById('availableJobs');
+        const wrapB = document.getElementById('workerJobs');
+        const wrapMy = document.getElementById('myAcceptedJobs');
+
+        const loading = `<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-circle-notch fa-spin"></i></div><h4>Loading...</h4><p>Please wait</p></div>`;
+        if (wrapA) wrapA.innerHTML = loading;
+        if (wrapB) wrapB.innerHTML = loading;
+        if (wrapMy) wrapMy.innerHTML = loading;
+
+        try {
+            const pending = await this._fetchJson('api/bookings.php?scope=worker_pending');
+            const my = await this._fetchJson('api/bookings.php?scope=worker_my');
+            const completed = await this._fetchJson('api/bookings.php?scope=worker_completed');
+            this._workerPendingCache = Array.isArray(pending.bookings) ? pending.bookings : [];
+            this._workerMyCache = Array.isArray(my.bookings) ? my.bookings : [];
+            this._workerCompletedCache = Array.isArray(completed.bookings) ? completed.bookings : [];
+            this.renderWorkerPendingJobs();
+            this.renderWorkerMyJobs();
+            this.renderWorkerCompletedJobs();
+        } catch (e) {
+            const err = `<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><h4>Failed to load jobs</h4><p>${this._escapeHtml(e.message || '')}</p></div>`;
+            if (wrapA) wrapA.innerHTML = err;
+            if (wrapB) wrapB.innerHTML = err;
+            if (wrapMy) wrapMy.innerHTML = err;
+        }
+    },
+
+    renderWorkerPendingJobs() {
+        const wrapA = document.getElementById('availableJobs');
+        const wrapB = document.getElementById('workerJobs');
+        let list = Array.isArray(this._workerPendingCache) ? [...this._workerPendingCache] : [];
+
+        if (this._workerJobsFilter === 'nearby') {
+            list = list.filter(b => {
+                const txt = `${b.address_text || ''}`.toLowerCase();
+                const city = `${this._profileData?.city || ''}`.toLowerCase();
+                const area = `${this._profileData?.area || ''}`.toLowerCase();
+                if (!city && !area) return true;
+                if (!txt) return false;
+                return (city && txt.includes(city)) || (area && txt.includes(area));
+            });
+        } else if (this._workerJobsFilter === 'high_paying') {
+            list = list.filter(b => Number(b.price || 0) >= 500);
+        }
+
+        const pHtml = list.length
+            ? list.map(b => this._renderJobCardForWorker(b, true)).join('')
+            : `<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-briefcase"></i></div><h4>No jobs found</h4><p>No matching requests for this filter.</p></div>`;
+        if (wrapA) wrapA.innerHTML = pHtml;
+        if (wrapB) wrapB.innerHTML = pHtml;
+    },
+
+    renderWorkerMyJobs() {
+        const wrapMy = document.getElementById('myAcceptedJobs');
+        if (!wrapMy) return;
+        const list = Array.isArray(this._workerMyCache) ? this._workerMyCache : [];
+        wrapMy.innerHTML = list.length
+            ? list.map(b => this._renderJobCardForWorker(b, false)).join('')
+            : `<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-clipboard-list"></i></div><h4>No accepted jobs</h4><p>Jobs you accept will appear here.</p></div>`;
+    },
+
+    renderWorkerCompletedJobs() {
+        const wrap = document.getElementById('completedJobs');
+        if (!wrap) return;
+        const list = Array.isArray(this._workerCompletedCache) ? this._workerCompletedCache : [];
+        wrap.innerHTML = list.length
+            ? list.map(b => this._renderJobCardForWorker(b, false, true)).join('')
+            : `<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-check-double"></i></div><h4>No completed jobs yet</h4><p>Completed jobs will appear here.</p></div>`;
+    },
+
+    async workerDecision(bookingId, decision) {
+        try {
+            await this._fetchJson('api/bookings.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'worker_decide', booking_id: Number(bookingId), decision })
+            });
+            this._showToast(decision === 'accept' ? 'Job accepted!' : 'Job denied.');
+            this.loadWorkerRequests();
+        } catch (e) {
+            this._showToast(e.message || 'Failed to update request.');
+        }
+    },
+
+    async workerComplete(bookingId) {
+        try {
+            await this._fetchJson('api/bookings.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'worker_complete', booking_id: Number(bookingId) })
+            });
+            this._showToast('Job marked as completed.');
+            this.loadWorkerRequests();
+        } catch (e) {
+            this._showToast(e.message || 'Failed to complete job.');
+        }
+    },
+
+    _renderBookingCardForUser(b) {
+        const status = this._prettyStatus(b.display_status || b.status);
+        const when = b.scheduled_at ? this._formatDate(b.scheduled_at) : 'Not scheduled';
+        const worker = b.worker_name ? `Worker: ${this._escapeHtml(b.worker_name)}` : 'Worker: —';
+        return `
+        <div class="job-card" style="padding:14px 16px;">
+            <div class="job-info">
+                <h4>${this._escapeHtml(b.service_name || 'Service')} <span style="font-weight:600;color:var(--muted);">#${this._escapeHtml(b.booking_code || '')}</span></h4>
+                <p><i class="fa-solid fa-clock"></i> ${this._escapeHtml(when)}</p>
+                <p><i class="fa-solid fa-user"></i> ${worker}</p>
+            </div>
+            <div class="job-right">
+                <div class="job-pay" style="font-size:12px;">${this._escapeHtml(status)}</div>
+            </div>
+        </div>`;
+    },
+
+    _renderJobCardForWorker(b, showActions, isCompleted = false) {
+        const when = b.scheduled_at ? this._formatDate(b.scheduled_at) : 'Not scheduled';
+        const addr = b.address_text ? this._escapeHtml(b.address_text) : '—';
+        const notes = b.notes ? this._escapeHtml(b.notes) : '—';
+        const user = `${this._escapeHtml(b.user_name || 'User')} (${this._escapeHtml(b.user_phone || '—')})`;
+        const status = this._prettyStatus(b.display_status || b.status);
+        const actions = showActions ? `
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
+                <button class="btn-secondary" style="padding:8px 10px;border-radius:10px;" onclick="SohojShebaDashboard.workerDecision(${b.id},'deny')">
+                    <i class="fa-solid fa-xmark"></i> Deny
+                </button>
+                <button class="btn-primary" style="padding:8px 10px;border-radius:10px;" onclick="SohojShebaDashboard.workerDecision(${b.id},'accept')">
+                    <i class="fa-solid fa-check"></i> Accept
+                </button>
+            </div>` : '';
+        const completeBtn = (!showActions && !isCompleted && String(b.status).toLowerCase() !== 'completed') ? `
+            <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+                <button class="btn-primary" style="padding:8px 10px;border-radius:10px;" onclick="SohojShebaDashboard.workerComplete(${b.id})">
+                    <i class="fa-solid fa-check-double"></i> Mark Completed
+                </button>
+            </div>` : '';
+        return `
+        <div class="job-card" style="padding:14px 16px;">
+            <div class="job-info">
+                <h4>${this._escapeHtml(b.service_name || 'Service')} <span style="font-weight:600;color:var(--muted);">#${this._escapeHtml(b.booking_code || '')}</span></h4>
+                <p><i class="fa-solid fa-user"></i> ${user}</p>
+                <p><i class="fa-solid fa-location-dot"></i> ${addr}</p>
+                <p><i class="fa-solid fa-note-sticky"></i> ${notes}</p>
+                <p><i class="fa-solid fa-clock"></i> ${this._escapeHtml(when)}</p>
+            </div>
+            <div class="job-right">
+                <div class="job-pay" style="font-size:12px;">${this._escapeHtml(status)}</div>
+                ${actions}
+                ${completeBtn}
+            </div>
+        </div>`;
+    },
+
+    _prettyStatus(s) {
+        const v = (s || '').toString().toLowerCase();
+        if (v === 'pending') return 'Pending';
+        if (v === 'accepted') return 'Accepted';
+        if (v === 'in_progress') return 'In Progress';
+        if (v === 'completed') return 'Completed';
+        if (v === 'denied') return 'Denied';
+        if (v === 'cancelled') return 'Cancelled';
+        return s || '—';
+    },
+
+    _escapeHtml(str) {
+        return String(str ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     },
 
     setupLogout() {
