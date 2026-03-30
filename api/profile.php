@@ -117,14 +117,48 @@ function handleGet(array $user): void {
 // POST — update profile
 // ══════════════════════════════════════════════════════════════════════════════
 function handlePost(array $sessionUser): void {
+    $rawJson = file_get_contents('php://input');
+    $json    = json_decode($rawJson, true);
+    $input   = is_array($json) ? $json : [];
 
-    $pv     = fn(string $key) => trim((string)($_POST[$key] ?? ''));
-    $orNull = fn(string $v)   => $v !== '' ? $v : null;
+    $pv = fn(string $key) => trim((string)($input[$key] ?? $_POST[$key] ?? ''));
+    $orNull = fn(string $v) => $v !== '' ? $v : null;
 
     try {
         $pdo    = db();
         $userId = (int)$sessionUser['id'];
         $role   = $sessionUser['role'];
+        $action = strtolower($pv('action'));
+
+        // ── Password update route (JSON) ────────────────────────────────────
+        if ($action === 'change_password') {
+            $currentPassword = $pv('currentPassword');
+            $newPassword     = $pv('newPassword');
+
+            if ($currentPassword === '') {
+                json_response(['success' => false, 'message' => 'Current password is required.'], 400);
+            }
+            if (strlen($newPassword) < 6) {
+                json_response(['success' => false, 'message' => 'New password must be at least 6 characters.'], 400);
+            }
+
+            $stmt = $pdo->prepare('SELECT password_hash FROM users WHERE id = ? LIMIT 1');
+            $stmt->execute([$userId]);
+            $row = $stmt->fetch();
+            if (!$row) {
+                json_response(['success' => false, 'message' => 'User not found.'], 404);
+            }
+
+            if (!password_verify($currentPassword, (string)$row['password_hash'])) {
+                json_response(['success' => false, 'message' => 'Current password is incorrect.'], 401);
+            }
+
+            $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
+            $pdo->prepare('UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?')
+                ->execute([$newHash, $userId]);
+
+            json_response(['success' => true, 'message' => 'Password changed successfully.']);
+        }
 
         // ── Common fields ─────────────────────────────────────────────────────
         $name     = $pv('name');

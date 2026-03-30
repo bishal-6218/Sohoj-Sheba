@@ -688,10 +688,10 @@ const SohojShebaDashboard = {
         btnLoad.style.display = 'inline-flex';
         this._clearAlert('cpAlert');
 
-        fetch('api/change_password.php', {
+        fetch('api/profile.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ currentPassword: current, newPassword: newPw })
+            body: JSON.stringify({ action: 'change_password', currentPassword: current, newPassword: newPw })
         })
             .then(r => r.json())
             .then(data => {
