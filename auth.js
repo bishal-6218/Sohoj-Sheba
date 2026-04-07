@@ -17,28 +17,20 @@ function handleSignup(e) {
         return;
     }
 
-    btn.disabled         = true;
-    text.style.display   = 'none';
-    loader.style.display = 'inline-flex';
-
-    fetch('api/signup.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            window.location.href = 'login.html';
-        } else {
+    setBtnLoading(btn, text, loader, true);
+    postJson('api/signup.php', { name, email, password, role })
+        .then(data => {
+            if (data.success) {
+                window.location.href = 'login.html';
+                return;
+            }
             showFormError(data.message || 'Registration failed.');
-            resetBtn(btn, text, loader);
-        }
-    })
-    .catch(() => {
-        showFormError('Server error. Please try again.');
-        resetBtn(btn, text, loader);
-    });
+            setBtnLoading(btn, text, loader, false);
+        })
+        .catch(() => {
+            showFormError('Server error. Please try again.');
+            setBtnLoading(btn, text, loader, false);
+        });
 }
 
 // ─── Login ────────────────────────────────────
@@ -53,32 +45,22 @@ function handleLogin(e) {
     const text   = btn.querySelector('.btn-text');
     const loader = btn.querySelector('.btn-loader');
 
-    btn.disabled         = true;
-    text.style.display   = 'none';
-    loader.style.display = 'inline-flex';
-
-    fetch('api/login.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, role })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            if (data.user.role === 'worker') {
-                window.location.href = 'worker-dashboard.html';
-            } else {
-                window.location.href = 'user-dashboard.html';
+    setBtnLoading(btn, text, loader, true);
+    postJson('api/login.php', { email, password, role })
+        .then(data => {
+            if (data.success) {
+                window.location.href = (data.user && data.user.role === 'worker')
+                    ? 'worker-dashboard.html'
+                    : 'user-dashboard.html';
+                return;
             }
-        } else {
             showFormError(data.message || 'Invalid email, password, or role.');
-            resetBtn(btn, text, loader);
-        }
-    })
-    .catch(() => {
-        showFormError('Server error. Please try again.');
-        resetBtn(btn, text, loader);
-    });
+            setBtnLoading(btn, text, loader, false);
+        })
+        .catch(() => {
+            showFormError('Server error. Please try again.');
+            setBtnLoading(btn, text, loader, false);
+        });
 }
 
 // ─── Password toggle ──────────────────────────
@@ -95,10 +77,18 @@ function togglePassword() {
 }
 
 // ─── Helpers ──────────────────────────────────
-function resetBtn(btn, text, loader) {
-    btn.disabled         = false;
-    text.style.display   = 'inline-flex';
-    loader.style.display = 'none';
+function postJson(url, body) {
+    return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+    }).then(r => r.json());
+}
+
+function setBtnLoading(btn, text, loader, isLoading) {
+    btn.disabled = !!isLoading;
+    text.style.display = isLoading ? 'none' : 'inline-flex';
+    loader.style.display = isLoading ? 'inline-flex' : 'none';
 }
 
 function showFormError(msg) {

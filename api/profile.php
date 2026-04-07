@@ -11,19 +11,23 @@ if (!$sessionUser) {
 $method = $_SERVER['REQUEST_METHOD'];
 
 // ── Route ─────────────────────────────────────────────────────────────────────
-if ($method === 'GET') {
-    handleGet($sessionUser);
-} elseif ($method === 'POST') {
-    handlePost($sessionUser);
-} else {
-    json_response(['success' => false, 'message' => 'Invalid method'], 405);
+switch ($method) {
+    case 'GET':
+        handleGet($sessionUser);
+        break;
+    case 'POST':
+        handlePost($sessionUser);
+        break;
+    default:
+        json_response(['success' => false, 'message' => 'Invalid method'], 405);
 }
 
 
 // ══════════════════════════════════════════════════════════════════════════════
 // GET — fetch full profile
 // ══════════════════════════════════════════════════════════════════════════════
-function handleGet(array $user): void {
+function handleGet(array $user): void
+{
     try {
         $pdo = db();
 
@@ -188,7 +192,9 @@ function handlePost(array $sessionUser): void {
         // Validate date of birth format
         if ($dob !== '') {
             $d = DateTime::createFromFormat('Y-m-d', $dob);
-            if (!$d || $d->format('Y-m-d') !== $dob) $dob = '';
+            if (!$d || $d->format('Y-m-d') !== $dob) {
+                $dob = '';
+            }
         }
 
         $pdo->beginTransaction();
@@ -215,10 +221,7 @@ function handlePost(array $sessionUser): void {
         // ── User: profile / NID photo uploads ───────────────────────────────────
         if ($role === 'user') {
             $userProfilePath = saveUpload('profilePhoto', 'profiles');
-            $userNidPath     = saveUpload('userNidPhoto', 'nid');
-            if ($userNidPath === null) {
-                $userNidPath = saveUpload('nidPhoto', 'nid');
-            }
+            $userNidPath     = saveUpload('userNidPhoto', 'nid') ?? saveUpload('nidPhoto', 'nid');
 
             if ($userProfilePath !== null || $userNidPath !== null) {
                 $cur = $pdo->prepare('SELECT profile_photo_path, nid_photo_path FROM users WHERE id = ? LIMIT 1');
@@ -242,36 +245,29 @@ function handlePost(array $sessionUser): void {
             // Handle profile photo upload
             $profilePath = saveUpload('profilePhoto', 'profiles');
 
+            $wpSql = 'UPDATE worker_profiles SET
+                        experience=?, skills=?, nid_number=?, trade_license=?,';
+            $wpParams = [
+                $orNull($experience), $orNull($skills),
+                $orNull($nidNumber), $orNull($tradeLicense),
+            ];
+
+            // New photo — include it in the update
             if ($profilePath !== null) {
-                // New photo — include it in the update
-                $pdo->prepare(
-                    'UPDATE worker_profiles SET
-                        experience=?, skills=?, nid_number=?, trade_license=?,
-                        profile_photo_path=?, updated_at=NOW()
-                     WHERE user_id=?'
-                )->execute([
-                    $orNull($experience), $orNull($skills),
-                    $orNull($nidNumber),  $orNull($tradeLicense),
-                    $profilePath, $userId,
-                ]);
+                $wpSql .= ' profile_photo_path=?,';
+                $wpParams[] = $profilePath;
                 $pdo->prepare('UPDATE users SET profile_photo_path = ? WHERE id = ?')->execute([$profilePath, $userId]);
-            } else {
-                // No new photo — leave existing photo untouched
-                $pdo->prepare(
-                    'UPDATE worker_profiles SET
-                        experience=?, skills=?, nid_number=?, trade_license=?,
-                        updated_at=NOW()
-                     WHERE user_id=?'
-                )->execute([
-                    $orNull($experience), $orNull($skills),
-                    $orNull($nidNumber),  $orNull($tradeLicense),
-                    $userId,
-                ]);
             }
+
+            $wpSql .= ' updated_at=NOW() WHERE user_id=?';
+            $wpParams[] = $userId;
+            $pdo->prepare($wpSql)->execute($wpParams);
 
             // Re-sync worker_services from submitted checkboxes
             $selected = $_POST['services'] ?? [];
-            if (!is_array($selected)) $selected = [];
+            if (!is_array($selected)) {
+                $selected = [];
+            }
             $slugs = array_values(array_unique(array_filter(array_map('strval', $selected))));
 
             $pdo->prepare('DELETE FROM worker_services WHERE worker_user_id=?')->execute([$userId]);
@@ -305,7 +301,9 @@ function handlePost(array $sessionUser): void {
         ]);
 
     } catch (Throwable $e) {
-        if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+        if (isset($pdo) && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         json_response(['success' => false, 'message' => $e->getMessage() ?: 'Server error while updating profile.'], 500);
     }
 }
@@ -314,18 +312,31 @@ function handlePost(array $sessionUser): void {
 // ══════════════════════════════════════════════════════════════════════════════
 // Helper — validate and save a file upload, return web-relative path or null
 // ══════════════════════════════════════════════════════════════════════════════
-function saveUpload(string $field, string $subdir = 'profiles'): ?string {
-    if (!isset($_FILES[$field])) return null;
+function saveUpload(string $field, string $subdir = 'profiles'): ?string
+{
+    if (!isset($_FILES[$field])) {
+        return null;
+    }
     $f = $_FILES[$field];
 
-    if (($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) return null;
-    if ($f['error'] !== UPLOAD_ERR_OK)     throw new RuntimeException("Upload error for $field");
-    if ($f['size']  > 5 * 1024 * 1024)    throw new RuntimeException("File too large for $field (max 5 MB)");
-    if (!is_uploaded_file($f['tmp_name'])) throw new RuntimeException("Invalid upload for $field");
+    if (($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return null;
+    }
+    if ($f['error'] !== UPLOAD_ERR_OK) {
+        throw new RuntimeException("Upload error for $field");
+    }
+    if ($f['size'] > 5 * 1024 * 1024) {
+        throw new RuntimeException("File too large for $field (max 5 MB)");
+    }
+    if (!is_uploaded_file($f['tmp_name'])) {
+        throw new RuntimeException("Invalid upload for $field");
+    }
 
     $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     $mime    = mime_content_type($f['tmp_name']) ?: '';
-    if (!in_array($mime, $allowed, true))  throw new RuntimeException("Invalid file type for $field");
+    if (!in_array($mime, $allowed, true)) {
+        throw new RuntimeException("Invalid file type for $field");
+    }
 
     $extMap = ['image/jpeg' => '.jpg', 'image/png' => '.png', 'image/gif' => '.gif', 'image/webp' => '.webp'];
     $ext    = $extMap[$mime] ?? '.jpg';
@@ -334,16 +345,22 @@ function saveUpload(string $field, string $subdir = 'profiles'): ?string {
     $targetDir = (realpath(dirname(__DIR__)) ?: dirname(__DIR__))
                  . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . $subdir;
 
-    if (!is_dir($targetDir)) mkdir($targetDir, 0777, true);
+    if (!is_dir($targetDir)) {
+        mkdir($targetDir, 0777, true);
+    }
 
     $filename = bin2hex(random_bytes(16)) . $ext;
     $abs      = $targetDir . DIRECTORY_SEPARATOR . $filename;
 
-    if (!move_uploaded_file($f['tmp_name'], $abs)) throw new RuntimeException("Failed to save $field");
+    if (!move_uploaded_file($f['tmp_name'], $abs)) {
+        throw new RuntimeException("Failed to save $field");
+    }
 
     // Return path relative to project root for browser use
     $rel  = str_replace('\\', '/', $abs);
     $root = str_replace('\\', '/', realpath(dirname(__DIR__)) ?: dirname(__DIR__));
-    if (str_starts_with($rel, $root)) $rel = ltrim(substr($rel, strlen($root)), '/');
+    if (str_starts_with($rel, $root)) {
+        $rel = ltrim(substr($rel, strlen($root)), '/');
+    }
     return $rel;
 }

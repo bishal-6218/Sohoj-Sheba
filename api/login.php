@@ -31,7 +31,7 @@ try {
         json_response(['success' => false, 'message' => 'Invalid email or password.'], 401);
     }
 
-    if (!password_verify($password, $user['password_hash'])) {
+    if (!password_verify($password, (string)$user['password_hash'])) {
         json_response(['success' => false, 'message' => 'Invalid email or password.'], 401);
     }
 

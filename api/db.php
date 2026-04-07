@@ -1,7 +1,8 @@
 <?php
 require_once __DIR__ . '/config.php';
 
-function db(): PDO {
+function db(): PDO
+{
     static $pdo = null;
     if ($pdo instanceof PDO) {
         return $pdo;
@@ -19,7 +20,8 @@ function db(): PDO {
     return $pdo;
 }
 
-function json_response(array $data, int $statusCode = 200): void {
+function json_response(array $data, int $statusCode = 200): void
+{
     http_response_code($statusCode);
     header('Content-Type: application/json');
     echo json_encode($data);

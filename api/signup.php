@@ -6,27 +6,39 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     json_response(['success' => false, 'message' => 'Invalid method'], 405);
 }
 
-function postv(string $key, $default = null) {
+function postv(string $key, $default = null)
+{
     return $_POST[$key] ?? $default;
 }
 
-function normalize_bool($v): int {
-    if ($v === null) return 0;
-    if ($v === true) return 1;
+function normalize_bool($v): int
+{
+    if ($v === null) {
+        return 0;
+    }
+    if ($v === true) {
+        return 1;
+    }
     $s = strtolower(trim((string)$v));
-    return in_array($s, ['1','true','yes','on'], true) ? 1 : 0;
+    return in_array($s, ['1', 'true', 'yes', 'on'], true) ? 1 : 0;
 }
 
-function ensure_dir(string $dir): void {
+function ensure_dir(string $dir): void
+{
     if (!is_dir($dir)) {
         mkdir($dir, 0777, true);
     }
 }
 
-function save_upload(string $field, string $targetDir, array $allowedMime, int $maxBytes): ?string {
-    if (!isset($_FILES[$field]) || !is_array($_FILES[$field])) return null;
+function save_upload(string $field, string $targetDir, array $allowedMime, int $maxBytes): ?string
+{
+    if (!isset($_FILES[$field]) || !is_array($_FILES[$field])) {
+        return null;
+    }
     $f = $_FILES[$field];
-    if (($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) return null;
+    if (($f['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return null;
+    }
     if (($f['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
         throw new RuntimeException('Upload failed for ' . $field);
     }
@@ -82,7 +94,9 @@ if (!empty($_POST)) {
 } else {
     $raw = file_get_contents('php://input');
     $json = json_decode($raw, true);
-    if (is_array($json)) $data = $json;
+    if (is_array($json)) {
+        $data = $json;
+    }
 }
 if (!is_array($data)) {
     json_response(['success' => false, 'message' => 'Invalid request body'], 400);

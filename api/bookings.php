@@ -9,20 +9,25 @@ if (!$sessionUser) {
 
 $method = $_SERVER['REQUEST_METHOD'];
 
-function read_json_body(): array {
+function read_json_body(): array
+{
     $raw = file_get_contents('php://input');
     $j = json_decode($raw, true);
     return is_array($j) ? $j : [];
 }
 
-function booking_code(): string {
+function booking_code(): string
+{
     return strtoupper(bin2hex(random_bytes(6))); // 12 chars
 }
 
-function map_display_status(array $row): string {
+function map_display_status(array $row): string
+{
     $status = (string)($row['status'] ?? '');
     $note = strtolower((string)($row['last_note'] ?? ''));
-    if ($status === 'cancelled' && str_contains($note, 'denied')) return 'denied';
+    if ($status === 'cancelled' && str_contains($note, 'denied')) {
+        return 'denied';
+    }
     return $status;
 }
 
@@ -35,7 +40,9 @@ try {
         $scope = (string)($_GET['scope'] ?? '');
 
         if ($scope === 'user') {
-            if ($role !== 'user') json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            if ($role !== 'user') {
+                json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            }
 
             $stmt = $pdo->prepare(
                 "SELECT 
@@ -59,7 +66,9 @@ try {
         }
 
         if ($scope === 'worker_pending') {
-            if ($role !== 'worker') json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            if ($role !== 'worker') {
+                json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            }
 
             $stmt = $pdo->prepare(
                 "SELECT 
@@ -83,7 +92,9 @@ try {
         }
 
         if ($scope === 'worker_my') {
-            if ($role !== 'worker') json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            if ($role !== 'worker') {
+                json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            }
 
             $stmt = $pdo->prepare(
                 "SELECT 
@@ -107,7 +118,9 @@ try {
         }
 
         if ($scope === 'worker_completed') {
-            if ($role !== 'worker') json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            if ($role !== 'worker') {
+                json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            }
 
             $stmt = $pdo->prepare(
                 "SELECT 
@@ -135,11 +148,15 @@ try {
 
     if ($method === 'POST') {
         $data = read_json_body();
-        if (!$data) $data = $_POST;
+        if (!$data) {
+            $data = $_POST;
+        }
         $action = (string)($data['action'] ?? '');
 
         if ($action === 'create') {
-            if ($role !== 'user') json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            if ($role !== 'user') {
+                json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            }
 
             $serviceSlug = trim((string)($data['service'] ?? ''));
             $workerId = (int)($data['worker_user_id'] ?? 0);
@@ -160,7 +177,9 @@ try {
             $svc = $pdo->prepare('SELECT id, base_price FROM services WHERE slug = ? AND is_active = 1 LIMIT 1');
             $svc->execute([$serviceSlug]);
             $svcRow = $svc->fetch();
-            if (!$svcRow) json_response(['success' => false, 'message' => 'Service not found'], 404);
+            if (!$svcRow) {
+                json_response(['success' => false, 'message' => 'Service not found'], 404);
+            }
             $serviceId = (int)$svcRow['id'];
             $basePrice = (int)$svcRow['base_price'];
 
@@ -181,7 +200,9 @@ try {
                 // datetime-local gives "YYYY-MM-DDTHH:MM"
                 $scheduledAt = str_replace('T', ' ', $scheduledAt);
                 $d = DateTime::createFromFormat('Y-m-d H:i', $scheduledAt);
-                if ($d) $dt = $d->format('Y-m-d H:i:00');
+                if ($d) {
+                    $dt = $d->format('Y-m-d H:i:00');
+                }
             }
 
             $pdo->beginTransaction();
@@ -214,12 +235,18 @@ try {
         }
 
         if ($action === 'worker_decide') {
-            if ($role !== 'worker') json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            if ($role !== 'worker') {
+                json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            }
 
             $bookingId = (int)($data['booking_id'] ?? 0);
             $decision = (string)($data['decision'] ?? '');
-            if ($bookingId <= 0) json_response(['success' => false, 'message' => 'Invalid booking'], 400);
-            if (!in_array($decision, ['accept', 'deny'], true)) json_response(['success' => false, 'message' => 'Invalid decision'], 400);
+            if ($bookingId <= 0) {
+                json_response(['success' => false, 'message' => 'Invalid booking'], 400);
+            }
+            if (!in_array($decision, ['accept', 'deny'], true)) {
+                json_response(['success' => false, 'message' => 'Invalid decision'], 400);
+            }
 
             $pdo->beginTransaction();
 
@@ -255,10 +282,14 @@ try {
         }
 
         if ($action === 'worker_complete') {
-            if ($role !== 'worker') json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            if ($role !== 'worker') {
+                json_response(['success' => false, 'message' => 'Forbidden'], 403);
+            }
 
             $bookingId = (int)($data['booking_id'] ?? 0);
-            if ($bookingId <= 0) json_response(['success' => false, 'message' => 'Invalid booking'], 400);
+            if ($bookingId <= 0) {
+                json_response(['success' => false, 'message' => 'Invalid booking'], 400);
+            }
 
             $pdo->beginTransaction();
 
@@ -299,7 +330,9 @@ try {
 
     json_response(['success' => false, 'message' => 'Invalid method'], 405);
 } catch (Throwable $e) {
-    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) $pdo->rollBack();
+    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     json_response(['success' => false, 'message' => 'Server error'], 500);
 }
 
