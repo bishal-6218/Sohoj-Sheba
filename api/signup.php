@@ -6,11 +6,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     json_response(['success' => false, 'message' => 'Invalid method'], 405);
 }
 
-function postv(string $key, $default = null)
-{
-    return $_POST[$key] ?? $default;
-}
-
 function normalize_bool($v): int
 {
     if ($v === null) {
@@ -28,6 +23,55 @@ function ensure_dir(string $dir): void
     if (!is_dir($dir)) {
         mkdir($dir, 0777, true);
     }
+}
+
+function project_root_path(): string
+{
+    $root = realpath(dirname(__DIR__));
+    return $root !== false ? $root : dirname(__DIR__);
+}
+
+function uploads_base_dir(): string
+{
+    return project_root_path() . DIRECTORY_SEPARATOR . 'uploads';
+}
+
+function read_body_or_post(): array
+{
+    if (!empty($_POST)) {
+        return $_POST;
+    }
+    $raw = file_get_contents('php://input');
+    $json = json_decode($raw, true);
+    return is_array($json) ? $json : [];
+}
+
+function run_stmt(mysqli $conn, string $sql, string $types = '', array $params = []): mysqli_stmt
+{
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        throw new RuntimeException('Prepare failed');
+    }
+    if ($types !== '' && !empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    if (!$stmt->execute()) {
+        throw new RuntimeException('Execute failed');
+    }
+    return $stmt;
+}
+
+function fetch_one_assoc(mysqli_stmt $stmt): ?array
+{
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    return $row ?: null;
+}
+
+function fetch_all_assoc(mysqli_stmt $stmt): array
+{
+    $result = $stmt->get_result();
+    return $result ? ($result->fetch_all(MYSQLI_ASSOC) ?: []) : [];
 }
 
 function save_upload(string $field, string $targetDir, array $allowedMime, int $maxBytes): ?string
@@ -80,7 +124,7 @@ function save_upload(string $field, string $targetDir, array $allowedMime, int $
 
     // store web path relative to project root
     $rel = str_replace('\\', '/', $absPath);
-    $root = str_replace('\\', '/', realpath(dirname(__DIR__)));
+    $root = str_replace('\\', '/', project_root_path());
     if ($root && str_starts_with($rel, $root)) {
         $rel = ltrim(substr($rel, strlen($root)), '/');
     }
@@ -88,17 +132,8 @@ function save_upload(string $field, string $targetDir, array $allowedMime, int $
 }
 
 // Accept both JSON (login-style) and multipart/form-data (signup.html with files)
-$data = null;
-if (!empty($_POST)) {
-    $data = $_POST;
-} else {
-    $raw = file_get_contents('php://input');
-    $json = json_decode($raw, true);
-    if (is_array($json)) {
-        $data = $json;
-    }
-}
-if (!is_array($data)) {
+$data = read_body_or_post();
+if (!$data) {
     json_response(['success' => false, 'message' => 'Invalid request body'], 400);
 }
 
@@ -148,21 +183,21 @@ $nidNumber    = trim((string)($data['nidNumber'] ?? ($data['nid_number'] ?? ''))
 $tradeLicense = trim((string)($data['tradeLicense'] ?? ($data['trade_license'] ?? '')));
 
 try {
-    $pdo = db();
+    global $conn;
 
-    $pdo->beginTransaction();
+    $conn->begin_transaction();
 
     // check duplicate email
-    $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ? LIMIT 1');
-    $stmt->execute([$email]);
-    if ($stmt->fetch()) {
-        $pdo->rollBack();
+    $stmt = run_stmt($conn, 'SELECT id FROM users WHERE email = ? LIMIT 1', 's', [$email]);
+    if (fetch_one_assoc($stmt)) {
+        $conn->rollback();
         json_response(['success' => false, 'message' => 'Email is already registered.'], 409);
     }
 
     $hash = password_hash($password, PASSWORD_DEFAULT);
 
-    $stmt = $pdo->prepare(
+    run_stmt(
+        $conn,
         'INSERT INTO users (
             role, name, email, password_hash,
             phone, whatsapp, alternative_phone,
@@ -175,62 +210,57 @@ try {
             ?, ?, ?, ?, ?,
             ?, ?,
             ?, ?, ?, ?, ?
-        )'
+        )',
+        'ssssssssssssssssi' . 's',
+        [
+            $role, $name, $email, $hash,
+            $phone !== '' ? $phone : null,
+            $whatsapp !== '' ? $whatsapp : null,
+            $alternativePhone !== '' ? $alternativePhone : null,
+            $country !== '' ? $country : null,
+            $city !== '' ? $city : null,
+            $area !== '' ? $area : null,
+            $postalCode !== '' ? $postalCode : null,
+            $address !== '' ? $address : null,
+            $dateOfBirth !== '' ? $dateOfBirth : null,
+            ($gender !== '' ? $gender : null),
+            $preferredLanguage !== '' ? $preferredLanguage : null,
+            $referralSource !== '' ? $referralSource : null,
+            $preferencesText !== '' ? $preferencesText : null,
+            $newsletterOptIn,
+            $termsAcceptedAt,
+        ]
     );
-    $stmt->execute([
-        $role, $name, $email, $hash,
-        $phone !== '' ? $phone : null,
-        $whatsapp !== '' ? $whatsapp : null,
-        $alternativePhone !== '' ? $alternativePhone : null,
-        $country !== '' ? $country : null,
-        $city !== '' ? $city : null,
-        $area !== '' ? $area : null,
-        $postalCode !== '' ? $postalCode : null,
-        $address !== '' ? $address : null,
-        $dateOfBirth !== '' ? $dateOfBirth : null,
-        ($gender !== '' ? $gender : null),
-        $preferredLanguage !== '' ? $preferredLanguage : null,
-        $referralSource !== '' ? $referralSource : null,
-        $preferencesText !== '' ? $preferencesText : null,
-        $newsletterOptIn,
-        $termsAcceptedAt,
-    ]);
 
-    $userId = (int)$pdo->lastInsertId();
+    $userId = (int)$conn->insert_id;
 
     // Save worker extras + uploaded files
     if ($role === 'worker') {
-        $allowed = ['image/jpeg','image/png','image/gif','image/webp'];
+        $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         $max = 5 * 1024 * 1024;
-
-        $uploadsBase = realpath(dirname(__DIR__)) . DIRECTORY_SEPARATOR . 'uploads';
-        if ($uploadsBase === false) {
-            $uploadsBase = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads';
-        }
+        $uploadsBase = uploads_base_dir();
 
         $profilePath = save_upload('profilePhoto', $uploadsBase . DIRECTORY_SEPARATOR . 'profiles', $allowed, $max);
         $nidPath     = save_upload('nidPhoto',     $uploadsBase . DIRECTORY_SEPARATOR . 'nid',      $allowed, $max);
 
-        $stmt = $pdo->prepare(
+        run_stmt(
+            $conn,
             'INSERT INTO worker_profiles (user_id, experience, skills, nid_number, trade_license, profile_photo_path, nid_photo_path)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
+             VALUES (?, ?, ?, ?, ?, ?, ?)',
+            'issssss',
+            [
+                $userId,
+                $experience !== '' ? $experience : null,
+                $skills !== '' ? $skills : null,
+                $nidNumber !== '' ? $nidNumber : null,
+                $tradeLicense !== '' ? $tradeLicense : null,
+                $profilePath,
+                $nidPath,
+            ]
         );
-        $stmt->execute([
-            $userId,
-            $experience !== '' ? $experience : null,
-            $skills !== '' ? $skills : null,
-            $nidNumber !== '' ? $nidNumber : null,
-            $tradeLicense !== '' ? $tradeLicense : null,
-            $profilePath,
-            $nidPath,
-        ]);
 
         // Mirror paths on `users` (schema: sohoj_sheba.sql)
-        $pdo->prepare('UPDATE users SET profile_photo_path = ?, nid_photo_path = ? WHERE id = ?')->execute([
-            $profilePath,
-            $nidPath,
-            $userId,
-        ]);
+        run_stmt($conn, 'UPDATE users SET profile_photo_path = ?, nid_photo_path = ? WHERE id = ?', 'ssi', [$profilePath, $nidPath, $userId]);
 
         // Map selected services[] (slug) -> worker_services rows
         $selected = $data['services'] ?? ($data['services[]'] ?? null);
@@ -238,13 +268,19 @@ try {
             $slugs = array_values(array_unique(array_filter(array_map('strval', $selected))));
             if (count($slugs) > 0) {
                 $in = implode(',', array_fill(0, count($slugs), '?'));
-                $q = $pdo->prepare("SELECT id, slug FROM services WHERE slug IN ($in)");
-                $q->execute($slugs);
-                $rows = $q->fetchAll();
+                $q = run_stmt($conn, "SELECT id, slug FROM services WHERE slug IN ($in)", str_repeat('s', count($slugs)), $slugs);
+                $rows = fetch_all_assoc($q);
                 if ($rows) {
-                    $ins = $pdo->prepare('INSERT IGNORE INTO worker_services (worker_user_id, service_id) VALUES (?, ?)');
+                    $ins = $conn->prepare('INSERT IGNORE INTO worker_services (worker_user_id, service_id) VALUES (?, ?)');
+                    if (!$ins) {
+                        throw new RuntimeException('Prepare failed');
+                    }
                     foreach ($rows as $r) {
-                        $ins->execute([$userId, (int)$r['id']]);
+                        $serviceId = (int)$r['id'];
+                        $ins->bind_param('ii', $userId, $serviceId);
+                        if (!$ins->execute()) {
+                            throw new RuntimeException('Execute failed');
+                        }
                     }
                 }
             }
@@ -253,13 +289,9 @@ try {
 
     // Save user profile photo and NID photo (for regular users)
     if ($role === 'user') {
-        $allowed = ['image/jpeg','image/png','image/gif','image/webp'];
+        $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         $max = 5 * 1024 * 1024;
-
-        $uploadsBase = realpath(dirname(__DIR__)) . DIRECTORY_SEPARATOR . 'uploads';
-        if ($uploadsBase === false) {
-            $uploadsBase = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads';
-        }
+        $uploadsBase = uploads_base_dir();
 
         $userProfilePath = save_upload('userProfilePhoto', $uploadsBase . DIRECTORY_SEPARATOR . 'profiles', $allowed, $max)
             ?? save_upload('profilePhoto', $uploadsBase . DIRECTORY_SEPARATOR . 'profiles', $allowed, $max);
@@ -267,18 +299,20 @@ try {
             ?? save_upload('nidPhoto', $uploadsBase . DIRECTORY_SEPARATOR . 'nid', $allowed, $max);
 
         if ($userProfilePath !== null || $userNidPath !== null) {
-            $stmt = $pdo->prepare(
-                'UPDATE users SET profile_photo_path = COALESCE(?, profile_photo_path), nid_photo_path = COALESCE(?, nid_photo_path) WHERE id = ?'
-            );
-            $stmt->execute([
+            run_stmt(
+                $conn,
+                'UPDATE users SET profile_photo_path = COALESCE(?, profile_photo_path), nid_photo_path = COALESCE(?, nid_photo_path) WHERE id = ?',
+                'ssi',
+                [
                 $userProfilePath,
                 $userNidPath,
                 $userId,
-            ]);
+                ]
+            );
         }
     }
 
-    $pdo->commit();
+    $conn->commit();
 
     json_response([
         'success' => true,
@@ -290,8 +324,8 @@ try {
         ],
     ]);
 } catch (Throwable $e) {
-    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
-        $pdo->rollBack();
+    if (isset($conn) && $conn instanceof mysqli) {
+        @$conn->rollback();
     }
     json_response(['success' => false, 'message' => $e->getMessage() ?: 'Server error while creating account.'], 500);
 }

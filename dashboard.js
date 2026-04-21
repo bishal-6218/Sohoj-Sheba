@@ -63,6 +63,76 @@ const SohojShebaDashboard = {
         const el = document.getElementById(id);
         if (el) el.textContent = (val !== null && val !== undefined && String(val).trim() !== '') ? val : '—';
     },
+    _fmtInt(n) {
+        const v = Number(n || 0);
+        if (!Number.isFinite(v)) return '0';
+        return String(Math.round(v));
+    },
+    _fmtMoneyBDT(amount) {
+        const n = Number(amount || 0);
+        if (!Number.isFinite(n)) return '৳0';
+        const rounded = Math.round(n);
+        return `৳${rounded.toLocaleString('en-US')}`;
+    },
+    _statusOf(row) {
+        return String(row?.display_status || row?.status || '').toLowerCase();
+    },
+    _sumPrice(rows) {
+        if (!Array.isArray(rows)) return 0;
+        return rows.reduce((sum, r) => {
+            const v = Number(r?.price || 0);
+            return sum + (Number.isFinite(v) ? v : 0);
+        }, 0);
+    },
+    _updateUserOverview() {
+        const list = Array.isArray(this._userBookingsCache) ? this._userBookingsCache : [];
+        const total = list.length;
+
+        // "Pending" on overview = anything still in progress
+        const pendingLike = new Set(['pending', 'accepted', 'in_progress']);
+        const pending = list.filter(b => pendingLike.has(this._statusOf(b))).length;
+
+        const completed = list.filter(b => this._statusOf(b) === 'completed').length;
+        const spent = this._sumPrice(list.filter(b => this._statusOf(b) === 'completed'));
+
+        const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        setTxt('statTotal', this._fmtInt(total));
+        setTxt('statPending', this._fmtInt(pending));
+        setTxt('statCompleted', this._fmtInt(completed));
+        setTxt('statSpent', this._fmtMoneyBDT(spent));
+
+        // Recent bookings (overview card)
+        const recentEl = document.getElementById('recentBookings');
+        if (recentEl) {
+            const top = list.slice(0, 3);
+            recentEl.innerHTML = top.length
+                ? top.map(b => this._renderBookingCardForUser(b)).join('')
+                : `<div class="empty-state">
+                        <div class="empty-icon"><i class="fa-solid fa-calendar-xmark"></i></div>
+                        <h4>No bookings yet</h4>
+                        <p>Your recent bookings will show here.</p>
+                   </div>`;
+        }
+    },
+    _updateWorkerOverview() {
+        const pending = Array.isArray(this._workerPendingCache) ? this._workerPendingCache : [];
+        const completed = Array.isArray(this._workerCompletedCache) ? this._workerCompletedCache : [];
+
+        const availableJobs = pending.length;
+        const completedJobs = completed.length;
+        const earned = this._sumPrice(completed);
+
+        const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        setTxt('statAvailable', this._fmtInt(availableJobs));
+        setTxt('statCompleted', this._fmtInt(completedJobs));
+        setTxt('statEarnings', this._fmtMoneyBDT(earned));
+
+        // Earnings page quick numbers (if present)
+        setTxt('earnTotal', this._fmtMoneyBDT(earned));
+        setTxt('earnMonth', '—');
+        setTxt('earnPending', '—');
+        setTxt('earnAvailable', this._fmtMoneyBDT(earned));
+    },
     _formatDate(str) {
         if (!str) return '—';
         try { return new Date(str).toLocaleDateString('en-GB', { year:'numeric', month:'long', day:'numeric' }); }
@@ -949,6 +1019,21 @@ const SohojShebaDashboard = {
             this.openBookingModal(service);
         });
 
+        // Booking modal: toggle worker profile details
+        document.getElementById('bk_workers')?.addEventListener('click', e => {
+            const t = e.target.closest('[data-wk-toggle]');
+            if (!t) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const id = t.getAttribute('data-wk-toggle');
+            if (!id) return;
+            const details = document.getElementById(id);
+            if (!details) return;
+            const next = details.style.display === 'none' || !details.style.display ? 'block' : 'none';
+            details.style.display = next;
+            t.textContent = next === 'block' ? 'Hide Profile' : 'View Profile';
+        });
+
         this.setupFilters();
     },
 
@@ -1050,6 +1135,11 @@ const SohojShebaDashboard = {
                 const avatar = photo
                     ? `<img src="${photo}" alt="Worker" style="width:38px;height:38px;border-radius:50%;object-fit:cover;">`
                     : `<div style="width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:#f3f4f6;color:#6b7280;"><i class="fa-solid fa-user"></i></div>`;
+                const detailsId = `wk_${serviceSlug}_${w.id}`.replace(/[^a-z0-9_]/gi, '_');
+                const exp = this._formatExp(w.experience);
+                const city = this._cap(w.city);
+                const area = this._escapeHtml(w.area || '—');
+                const skills = this._escapeHtml(w.skills || '—');
                 return `
                 <label class="ep-check-item" style="display:flex;gap:10px;align-items:center;justify-content:flex-start;">
                     <input type="radio" name="worker_user_id" value="${w.id}" required>
@@ -1057,10 +1147,37 @@ const SohojShebaDashboard = {
                     <span style="display:flex;flex-direction:column;gap:2px;">
                         <span style="font-weight:700;color:var(--text);">${this._escapeHtml(w.name || 'Worker')}</span>
                         <span style="font-size:12px;color:var(--muted);">
-                            <i class="fa-solid fa-star" style="color:var(--accent);"></i> ${rating}
-                            <span style="margin:0 6px;opacity:.6;">•</span>
                             Jobs: ${w.jobs_completed ?? 0}
                         </span>
+                        <span style="margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                            <button type="button"
+                                data-wk-toggle="${detailsId}"
+                                style="background:transparent;border:none;padding:0;color:var(--accent);font-weight:700;font-size:12px;cursor:pointer;">
+                                View Profile
+                            </button>
+                        </span>
+                        <div id="${detailsId}" style="display:none;margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);">
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                                <div>
+                                    <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Rating</div>
+                                    <div style="font-size:12.5px;color:var(--text);font-weight:600;margin-top:2px;">
+                                        <i class="fa-solid fa-star" style="color:var(--accent);"></i> ${this._escapeHtml(rating)}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Experience</div>
+                                    <div style="font-size:12.5px;color:var(--text);font-weight:600;margin-top:2px;">${this._escapeHtml(exp)}</div>
+                                </div>
+                                <div>
+                                    <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Location</div>
+                                    <div style="font-size:12.5px;color:var(--text);font-weight:600;margin-top:2px;">${this._escapeHtml(city)} • ${area}</div>
+                                </div>
+                                <div style="grid-column:1/-1;">
+                                    <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.4px;text-transform:uppercase;">Skills</div>
+                                    <div style="font-size:12.5px;color:var(--text);font-weight:600;margin-top:2px;line-height:1.5;">${skills}</div>
+                                </div>
+                            </div>
+                        </div>
                     </span>
                 </label>`;
             }).join('');
@@ -1125,6 +1242,7 @@ const SohojShebaDashboard = {
             const list = Array.isArray(data.bookings) ? data.bookings : [];
             this._userBookingsCache = list;
             this.renderUserBookings();
+            this._updateUserOverview();
         } catch (e) {
             wrap.innerHTML = `<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><h4>Failed to load bookings</h4><p>${this._escapeHtml(e.message || '')}</p></div>`;
         }
@@ -1174,6 +1292,7 @@ const SohojShebaDashboard = {
             this.renderWorkerPendingJobs();
             this.renderWorkerMyJobs();
             this.renderWorkerCompletedJobs();
+            this._updateWorkerOverview();
         } catch (e) {
             const err = `<div class="empty-state"><div class="empty-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><h4>Failed to load jobs</h4><p>${this._escapeHtml(e.message || '')}</p></div>`;
             if (wrapA) wrapA.innerHTML = err;

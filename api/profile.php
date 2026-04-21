@@ -10,6 +10,34 @@ if (!$sessionUser) {
 
 $method = $_SERVER['REQUEST_METHOD'];
 
+function run_stmt(mysqli $conn, string $sql, string $types = '', array $params = []): mysqli_stmt
+{
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        throw new RuntimeException('Prepare failed');
+    }
+    if ($types !== '' && !empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    if (!$stmt->execute()) {
+        throw new RuntimeException('Execute failed');
+    }
+    return $stmt;
+}
+
+function fetch_one_assoc(mysqli_stmt $stmt): ?array
+{
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    return $row ?: null;
+}
+
+function fetch_all_assoc(mysqli_stmt $stmt): array
+{
+    $result = $stmt->get_result();
+    return $result ? ($result->fetch_all(MYSQLI_ASSOC) ?: []) : [];
+}
+
 // ── Route ─────────────────────────────────────────────────────────────────────
 switch ($method) {
     case 'GET':
@@ -29,19 +57,22 @@ switch ($method) {
 function handleGet(array $user): void
 {
     try {
-        $pdo = db();
+        global $conn;
+        $userId = (int)$user['id'];
 
-        $stmt = $pdo->prepare(
+        $stmt = run_stmt(
+            $conn,
             'SELECT id, role, name, email, phone, whatsapp, alternative_phone,
                     country, city, area, postal_code, address,
                     date_of_birth, gender,
                     preferred_language, referral_source, preferences_text,
                     newsletter_opt_in, created_at,
                     profile_photo_path, nid_photo_path
-             FROM users WHERE id = ? LIMIT 1'
+             FROM users WHERE id = ? LIMIT 1',
+            'i',
+            [$userId]
         );
-        $stmt->execute([$user['id']]);
-        $row = $stmt->fetch();
+        $row = fetch_one_assoc($stmt);
 
         if (!$row) {
             json_response(['success' => false, 'message' => 'User not found'], 404);
@@ -73,13 +104,15 @@ function handleGet(array $user): void
 
         // Worker extras
         if ($row['role'] === 'worker') {
-            $wStmt = $pdo->prepare(
+            $wStmt = run_stmt(
+                $conn,
                 'SELECT experience, skills, nid_number, trade_license,
                         profile_photo_path, nid_photo_path, rating_avg, jobs_completed
-                 FROM worker_profiles WHERE user_id = ? LIMIT 1'
+                 FROM worker_profiles WHERE user_id = ? LIMIT 1',
+                'i',
+                [$userId]
             );
-            $wStmt->execute([$user['id']]);
-            $wp = $wStmt->fetch();
+            $wp = fetch_one_assoc($wStmt);
 
             if ($wp) {
                 $profile['experience']         = $wp['experience'];
@@ -98,13 +131,15 @@ function handleGet(array $user): void
             }
 
             // Services this worker offers — return both name (display) and slug (for checkboxes)
-            $sStmt = $pdo->prepare(
+            $sStmt = run_stmt(
+                $conn,
                 'SELECT s.name, s.slug FROM services s
                  INNER JOIN worker_services ws ON ws.service_id = s.id
-                 WHERE ws.worker_user_id = ?'
+                 WHERE ws.worker_user_id = ?',
+                'i',
+                [$userId]
             );
-            $sStmt->execute([$user['id']]);
-            $svcRows = $sStmt->fetchAll();
+            $svcRows = fetch_all_assoc($sStmt);
             $profile['services']      = array_column($svcRows, 'name');
             $profile['service_slugs'] = array_column($svcRows, 'slug');
         }
@@ -129,7 +164,7 @@ function handlePost(array $sessionUser): void {
     $orNull = fn(string $v) => $v !== '' ? $v : null;
 
     try {
-        $pdo    = db();
+        global $conn;
         $userId = (int)$sessionUser['id'];
         $role   = $sessionUser['role'];
         $action = strtolower($pv('action'));
@@ -146,9 +181,8 @@ function handlePost(array $sessionUser): void {
                 json_response(['success' => false, 'message' => 'New password must be at least 6 characters.'], 400);
             }
 
-            $stmt = $pdo->prepare('SELECT password_hash FROM users WHERE id = ? LIMIT 1');
-            $stmt->execute([$userId]);
-            $row = $stmt->fetch();
+            $stmt = run_stmt($conn, 'SELECT password_hash FROM users WHERE id = ? LIMIT 1', 'i', [$userId]);
+            $row = fetch_one_assoc($stmt);
             if (!$row) {
                 json_response(['success' => false, 'message' => 'User not found.'], 404);
             }
@@ -158,8 +192,7 @@ function handlePost(array $sessionUser): void {
             }
 
             $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
-            $pdo->prepare('UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?')
-                ->execute([$newHash, $userId]);
+            run_stmt($conn, 'UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?', 'si', [$newHash, $userId]);
 
             json_response(['success' => true, 'message' => 'Password changed successfully.']);
         }
@@ -197,18 +230,20 @@ function handlePost(array $sessionUser): void {
             }
         }
 
-        $pdo->beginTransaction();
+        $conn->begin_transaction();
 
         // ── Update users table ────────────────────────────────────────────────
-        $pdo->prepare(
+        run_stmt(
+            $conn,
             'UPDATE users SET
                 name=?, phone=?, whatsapp=?, alternative_phone=?,
                 country=?, city=?, area=?, postal_code=?, address=?,
                 date_of_birth=?, gender=?,
                 preferred_language=?, referral_source=?, preferences_text=?,
                 updated_at=NOW()
-             WHERE id=?'
-        )->execute([
+             WHERE id=?',
+            'ssssssssssssssi',
+            [
             $name,
             $orNull($phone), $orNull($whatsapp), $orNull($altPhone),
             $orNull($country), $orNull($city), $orNull($area),
@@ -216,7 +251,8 @@ function handlePost(array $sessionUser): void {
             $orNull($dob), $orNull($gender),
             $orNull($language), $orNull($referral), $orNull($prefs),
             $userId,
-        ]);
+            ]
+        );
 
         // ── User: profile / NID photo uploads ───────────────────────────────────
         if ($role === 'user') {
@@ -224,14 +260,11 @@ function handlePost(array $sessionUser): void {
             $userNidPath     = saveUpload('userNidPhoto', 'nid') ?? saveUpload('nidPhoto', 'nid');
 
             if ($userProfilePath !== null || $userNidPath !== null) {
-                $cur = $pdo->prepare('SELECT profile_photo_path, nid_photo_path FROM users WHERE id = ? LIMIT 1');
-                $cur->execute([$userId]);
-                $existing = $cur->fetch() ?: ['profile_photo_path' => null, 'nid_photo_path' => null];
+                $cur = run_stmt($conn, 'SELECT profile_photo_path, nid_photo_path FROM users WHERE id = ? LIMIT 1', 'i', [$userId]);
+                $existing = fetch_one_assoc($cur) ?: ['profile_photo_path' => null, 'nid_photo_path' => null];
                 $finalProfile = $userProfilePath ?? $existing['profile_photo_path'];
                 $finalNid     = $userNidPath ?? $existing['nid_photo_path'];
-                $pdo->prepare(
-                    'UPDATE users SET profile_photo_path = ?, nid_photo_path = ?, updated_at = NOW() WHERE id = ?'
-                )->execute([$finalProfile, $finalNid, $userId]);
+                run_stmt($conn, 'UPDATE users SET profile_photo_path = ?, nid_photo_path = ?, updated_at = NOW() WHERE id = ?', 'ssi', [$finalProfile, $finalNid, $userId]);
             }
         }
 
@@ -256,12 +289,13 @@ function handlePost(array $sessionUser): void {
             if ($profilePath !== null) {
                 $wpSql .= ' profile_photo_path=?,';
                 $wpParams[] = $profilePath;
-                $pdo->prepare('UPDATE users SET profile_photo_path = ? WHERE id = ?')->execute([$profilePath, $userId]);
+                run_stmt($conn, 'UPDATE users SET profile_photo_path = ? WHERE id = ?', 'si', [$profilePath, $userId]);
             }
 
             $wpSql .= ' updated_at=NOW() WHERE user_id=?';
             $wpParams[] = $userId;
-            $pdo->prepare($wpSql)->execute($wpParams);
+            $types = str_repeat('s', count($wpParams) - 1) . 'i';
+            run_stmt($conn, $wpSql, $types, $wpParams);
 
             // Re-sync worker_services from submitted checkboxes
             $selected = $_POST['services'] ?? [];
@@ -270,27 +304,32 @@ function handlePost(array $sessionUser): void {
             }
             $slugs = array_values(array_unique(array_filter(array_map('strval', $selected))));
 
-            $pdo->prepare('DELETE FROM worker_services WHERE worker_user_id=?')->execute([$userId]);
+            run_stmt($conn, 'DELETE FROM worker_services WHERE worker_user_id=?', 'i', [$userId]);
 
             if (count($slugs) > 0) {
                 $in      = implode(',', array_fill(0, count($slugs), '?'));
-                $svcStmt = $pdo->prepare("SELECT id FROM services WHERE slug IN ($in)");
-                $svcStmt->execute($slugs);
-                $insStmt = $pdo->prepare('INSERT IGNORE INTO worker_services (worker_user_id, service_id) VALUES (?,?)');
-                foreach ($svcStmt->fetchAll() as $r) {
-                    $insStmt->execute([$userId, (int)$r['id']]);
+                $svcStmt = run_stmt($conn, "SELECT id FROM services WHERE slug IN ($in)", str_repeat('s', count($slugs)), $slugs);
+                $insStmt = $conn->prepare('INSERT IGNORE INTO worker_services (worker_user_id, service_id) VALUES (?,?)');
+                if (!$insStmt) {
+                    throw new RuntimeException('Prepare failed');
+                }
+                foreach (fetch_all_assoc($svcStmt) as $r) {
+                    $sid = (int)$r['id'];
+                    $insStmt->bind_param('ii', $userId, $sid);
+                    if (!$insStmt->execute()) {
+                        throw new RuntimeException('Execute failed');
+                    }
                 }
             }
         }
 
-        $pdo->commit();
+        $conn->commit();
 
         // Keep session name in sync so sidebar/topbar shows updated name immediately
         $_SESSION['user']['name'] = $name;
 
-        $photoStmt = $pdo->prepare('SELECT profile_photo_path FROM users WHERE id = ? LIMIT 1');
-        $photoStmt->execute([$userId]);
-        $photoRow = $photoStmt->fetch();
+        $photoStmt = run_stmt($conn, 'SELECT profile_photo_path FROM users WHERE id = ? LIMIT 1', 'i', [$userId]);
+        $photoRow = fetch_one_assoc($photoStmt);
         $sessionPhoto = $photoRow['profile_photo_path'] ?? null;
         $_SESSION['user']['profile_photo_path'] = $sessionPhoto;
 
@@ -301,8 +340,8 @@ function handlePost(array $sessionUser): void {
         ]);
 
     } catch (Throwable $e) {
-        if (isset($pdo) && $pdo->inTransaction()) {
-            $pdo->rollBack();
+        if (isset($conn) && $conn instanceof mysqli) {
+            @$conn->rollback();
         }
         json_response(['success' => false, 'message' => $e->getMessage() ?: 'Server error while updating profile.'], 500);
     }

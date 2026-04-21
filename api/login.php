@@ -21,11 +21,18 @@ if ($email === '' || $password === '') {
 }
 
 try {
-    $pdo = db();
+    global $conn;
 
-    $stmt = $pdo->prepare('SELECT id, role, name, email, password_hash, profile_photo_path FROM users WHERE email = ? LIMIT 1');
-    $stmt->execute([$email]);
-    $user = $stmt->fetch();
+    $stmt = $conn->prepare('SELECT id, role, name, email, password_hash, profile_photo_path FROM users WHERE email = ? LIMIT 1');
+    if (!$stmt) {
+        throw new RuntimeException('Prepare failed');
+    }
+    $stmt->bind_param('s', $email);
+    if (!$stmt->execute()) {
+        throw new RuntimeException('Execute failed');
+    }
+    $result = $stmt->get_result();
+    $user = $result ? $result->fetch_assoc() : null;
 
     if (!$user) {
         json_response(['success' => false, 'message' => 'Invalid email or password.'], 401);
@@ -42,9 +49,17 @@ try {
 
     $photo = $user['profile_photo_path'] ?? null;
     if ($user['role'] === 'worker' && ($photo === null || $photo === '')) {
-        $w = $pdo->prepare('SELECT profile_photo_path FROM worker_profiles WHERE user_id = ? LIMIT 1');
-        $w->execute([(int)$user['id']]);
-        $wp = $w->fetch();
+        $workerId = (int)$user['id'];
+        $w = $conn->prepare('SELECT profile_photo_path FROM worker_profiles WHERE user_id = ? LIMIT 1');
+        if (!$w) {
+            throw new RuntimeException('Prepare failed');
+        }
+        $w->bind_param('i', $workerId);
+        if (!$w->execute()) {
+            throw new RuntimeException('Execute failed');
+        }
+        $wResult = $w->get_result();
+        $wp = $wResult ? $wResult->fetch_assoc() : null;
         if ($wp && !empty($wp['profile_photo_path'])) {
             $photo = $wp['profile_photo_path'];
         }

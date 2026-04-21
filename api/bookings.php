@@ -9,6 +9,13 @@ if (!$sessionUser) {
 
 $method = $_SERVER['REQUEST_METHOD'];
 
+function require_role(string $currentRole, string $requiredRole): void
+{
+    if ($currentRole !== $requiredRole) {
+        json_response(['success' => false, 'message' => 'Forbidden'], 403);
+    }
+}
+
 function read_json_body(): array
 {
     $raw = file_get_contents('php://input');
@@ -31,20 +38,65 @@ function map_display_status(array $row): string
     return $status;
 }
 
+function add_display_status(array $rows): array
+{
+    foreach ($rows as &$row) {
+        $row['display_status'] = map_display_status($row);
+    }
+    unset($row);
+    return $rows;
+}
+
+function json_post_or_body(): array
+{
+    $data = read_json_body();
+    if (!$data) {
+        $data = $_POST;
+    }
+    return is_array($data) ? $data : [];
+}
+
+function run_stmt(mysqli $conn, string $sql, string $types = '', array $params = []): mysqli_stmt
+{
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        throw new RuntimeException('Prepare failed');
+    }
+    if ($types !== '' && !empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    if (!$stmt->execute()) {
+        throw new RuntimeException('Execute failed');
+    }
+    return $stmt;
+}
+
+function fetch_one_assoc(mysqli_stmt $stmt): ?array
+{
+    $result = $stmt->get_result();
+    $row = $result ? $result->fetch_assoc() : null;
+    return $row ?: null;
+}
+
+function fetch_all_assoc(mysqli_stmt $stmt): array
+{
+    $result = $stmt->get_result();
+    return $result ? ($result->fetch_all(MYSQLI_ASSOC) ?: []) : [];
+}
+
 try {
-    $pdo = db();
-    $uid = (int)$sessionUser['id'];
+    global $conn;
+    $userId = (int)$sessionUser['id'];
     $role = (string)$sessionUser['role'];
 
     if ($method === 'GET') {
         $scope = (string)($_GET['scope'] ?? '');
 
         if ($scope === 'user') {
-            if ($role !== 'user') {
-                json_response(['success' => false, 'message' => 'Forbidden'], 403);
-            }
+            require_role($role, 'user');
 
-            $stmt = $pdo->prepare(
+            $stmt = run_stmt(
+                $conn,
                 "SELECT 
                     b.id, b.booking_code, b.status, b.scheduled_at, b.address_text, b.notes, b.created_at, b.price,
                     s.name AS service_name, s.slug AS service_slug,
@@ -55,22 +107,19 @@ try {
                  LEFT JOIN users w ON w.id = b.worker_user_id
                  WHERE b.user_id = ?
                  ORDER BY b.id DESC
-                 LIMIT 200"
+                 LIMIT 200",
+                'i',
+                [$userId]
             );
-            $stmt->execute([$uid]);
-            $rows = $stmt->fetchAll();
-            foreach ($rows as &$r) {
-                $r['display_status'] = map_display_status($r);
-            }
+            $rows = add_display_status(fetch_all_assoc($stmt));
             json_response(['success' => true, 'bookings' => $rows]);
         }
 
         if ($scope === 'worker_pending') {
-            if ($role !== 'worker') {
-                json_response(['success' => false, 'message' => 'Forbidden'], 403);
-            }
+            require_role($role, 'worker');
 
-            $stmt = $pdo->prepare(
+            $stmt = run_stmt(
+                $conn,
                 "SELECT 
                     b.id, b.booking_code, b.status, b.scheduled_at, b.address_text, b.notes, b.created_at, b.price,
                     s.name AS service_name, s.slug AS service_slug,
@@ -81,22 +130,19 @@ try {
                  INNER JOIN users u ON u.id = b.user_id
                  WHERE b.worker_user_id = ? AND b.status = 'pending'
                  ORDER BY b.id DESC
-                 LIMIT 200"
+                 LIMIT 200",
+                'i',
+                [$userId]
             );
-            $stmt->execute([$uid]);
-            $rows = $stmt->fetchAll();
-            foreach ($rows as &$r) {
-                $r['display_status'] = map_display_status($r);
-            }
+            $rows = add_display_status(fetch_all_assoc($stmt));
             json_response(['success' => true, 'bookings' => $rows]);
         }
 
         if ($scope === 'worker_my') {
-            if ($role !== 'worker') {
-                json_response(['success' => false, 'message' => 'Forbidden'], 403);
-            }
+            require_role($role, 'worker');
 
-            $stmt = $pdo->prepare(
+            $stmt = run_stmt(
+                $conn,
                 "SELECT 
                     b.id, b.booking_code, b.status, b.scheduled_at, b.address_text, b.notes, b.created_at, b.price,
                     s.name AS service_name, s.slug AS service_slug,
@@ -107,22 +153,19 @@ try {
                  INNER JOIN users u ON u.id = b.user_id
                  WHERE b.worker_user_id = ? AND b.status IN ('accepted','in_progress')
                  ORDER BY b.id DESC
-                 LIMIT 200"
+                 LIMIT 200",
+                'i',
+                [$userId]
             );
-            $stmt->execute([$uid]);
-            $rows = $stmt->fetchAll();
-            foreach ($rows as &$r) {
-                $r['display_status'] = map_display_status($r);
-            }
+            $rows = add_display_status(fetch_all_assoc($stmt));
             json_response(['success' => true, 'bookings' => $rows]);
         }
 
         if ($scope === 'worker_completed') {
-            if ($role !== 'worker') {
-                json_response(['success' => false, 'message' => 'Forbidden'], 403);
-            }
+            require_role($role, 'worker');
 
-            $stmt = $pdo->prepare(
+            $stmt = run_stmt(
+                $conn,
                 "SELECT 
                     b.id, b.booking_code, b.status, b.scheduled_at, b.address_text, b.notes, b.created_at, b.price,
                     s.name AS service_name, s.slug AS service_slug,
@@ -133,13 +176,11 @@ try {
                  INNER JOIN users u ON u.id = b.user_id
                  WHERE b.worker_user_id = ? AND b.status = 'completed'
                  ORDER BY b.id DESC
-                 LIMIT 200"
+                 LIMIT 200",
+                'i',
+                [$userId]
             );
-            $stmt->execute([$uid]);
-            $rows = $stmt->fetchAll();
-            foreach ($rows as &$r) {
-                $r['display_status'] = map_display_status($r);
-            }
+            $rows = add_display_status(fetch_all_assoc($stmt));
             json_response(['success' => true, 'bookings' => $rows]);
         }
 
@@ -147,16 +188,11 @@ try {
     }
 
     if ($method === 'POST') {
-        $data = read_json_body();
-        if (!$data) {
-            $data = $_POST;
-        }
+        $data = json_post_or_body();
         $action = (string)($data['action'] ?? '');
 
         if ($action === 'create') {
-            if ($role !== 'user') {
-                json_response(['success' => false, 'message' => 'Forbidden'], 403);
-            }
+            require_role($role, 'user');
 
             $serviceSlug = trim((string)($data['service'] ?? ''));
             $workerId = (int)($data['worker_user_id'] ?? 0);
@@ -174,9 +210,8 @@ try {
                 json_response(['success' => false, 'message' => 'Address is required'], 400);
             }
 
-            $svc = $pdo->prepare('SELECT id, base_price FROM services WHERE slug = ? AND is_active = 1 LIMIT 1');
-            $svc->execute([$serviceSlug]);
-            $svcRow = $svc->fetch();
+            $svc = run_stmt($conn, 'SELECT id, base_price FROM services WHERE slug = ? AND is_active = 1 LIMIT 1', 's', [$serviceSlug]);
+            $svcRow = fetch_one_assoc($svc);
             if (!$svcRow) {
                 json_response(['success' => false, 'message' => 'Service not found'], 404);
             }
@@ -184,14 +219,16 @@ try {
             $basePrice = (int)$svcRow['base_price'];
 
             // Ensure this worker offers this service
-            $chk = $pdo->prepare(
+            $chk = run_stmt(
+                $conn,
                 "SELECT 1
                  FROM worker_services ws
                  WHERE ws.worker_user_id = ? AND ws.service_id = ?
-                 LIMIT 1"
+                 LIMIT 1",
+                'ii',
+                [$workerId, $serviceId]
             );
-            $chk->execute([$workerId, $serviceId]);
-            if (!$chk->fetchColumn()) {
+            if (!fetch_one_assoc($chk)) {
                 json_response(['success' => false, 'message' => 'Selected worker does not offer this service'], 400);
             }
 
@@ -205,39 +242,40 @@ try {
                 }
             }
 
-            $pdo->beginTransaction();
+            $conn->begin_transaction();
             $code = booking_code();
-            $ins = $pdo->prepare(
+            run_stmt(
+                $conn,
                 "INSERT INTO bookings (booking_code, user_id, service_id, worker_user_id, status, scheduled_at, address_text, notes, price)
-                 VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?)"
+                 VALUES (?, ?, ?, ?, 'pending', ?, ?, ?, ?)",
+                'siiisssi',
+                [
+                    $code,
+                    $userId,
+                    $serviceId,
+                    $workerId,
+                    $dt,
+                    $addressText,
+                    $notes !== '' ? $notes : null,
+                    $basePrice > 0 ? $basePrice : null,
+                ]
             );
-            $ins->execute([
-                $code,
-                $uid,
-                $serviceId,
-                $workerId,
-                $dt,
-                $addressText,
-                $notes !== '' ? $notes : null,
-                $basePrice > 0 ? $basePrice : null,
-            ]);
-            $bookingId = (int)$pdo->lastInsertId();
+            $bookingId = (int)$conn->insert_id;
 
-            $hist = $pdo->prepare(
+            run_stmt(
+                $conn,
                 "INSERT INTO booking_status_history (booking_id, from_status, to_status, changed_by_user_id, note)
-                 VALUES (?, NULL, 'pending', ?, 'Created by user')"
+                 VALUES (?, NULL, 'pending', ?, 'Created by user')",
+                'ii',
+                [$bookingId, $userId]
             );
-            $hist->execute([$bookingId, $uid]);
-
-            $pdo->commit();
+            $conn->commit();
 
             json_response(['success' => true, 'booking_id' => $bookingId, 'booking_code' => $code]);
         }
 
         if ($action === 'worker_decide') {
-            if ($role !== 'worker') {
-                json_response(['success' => false, 'message' => 'Forbidden'], 403);
-            }
+            require_role($role, 'worker');
 
             $bookingId = (int)($data['booking_id'] ?? 0);
             $decision = (string)($data['decision'] ?? '');
@@ -248,79 +286,71 @@ try {
                 json_response(['success' => false, 'message' => 'Invalid decision'], 400);
             }
 
-            $pdo->beginTransaction();
+            $conn->begin_transaction();
 
-            $cur = $pdo->prepare('SELECT id, status FROM bookings WHERE id = ? AND worker_user_id = ? LIMIT 1 FOR UPDATE');
-            $cur->execute([$bookingId, $uid]);
-            $row = $cur->fetch();
+            $cur = run_stmt($conn, 'SELECT id, status FROM bookings WHERE id = ? AND worker_user_id = ? LIMIT 1 FOR UPDATE', 'ii', [$bookingId, $userId]);
+            $row = fetch_one_assoc($cur);
             if (!$row) {
-                $pdo->rollBack();
+                $conn->rollback();
                 json_response(['success' => false, 'message' => 'Booking not found'], 404);
             }
 
             $from = (string)$row['status'];
             if ($from !== 'pending') {
-                $pdo->rollBack();
+                $conn->rollback();
                 json_response(['success' => false, 'message' => 'This request is no longer pending'], 400);
             }
 
             $to = ($decision === 'accept') ? 'accepted' : 'cancelled';
             $note = ($decision === 'accept') ? 'Accepted by worker' : 'Denied by worker';
 
-            $upd = $pdo->prepare('UPDATE bookings SET status = ?, updated_at = NOW() WHERE id = ?');
-            $upd->execute([$to, $bookingId]);
-
-            $hist = $pdo->prepare(
+            run_stmt($conn, 'UPDATE bookings SET status = ?, updated_at = NOW() WHERE id = ?', 'si', [$to, $bookingId]);
+            run_stmt(
+                $conn,
                 "INSERT INTO booking_status_history (booking_id, from_status, to_status, changed_by_user_id, note)
-                 VALUES (?, ?, ?, ?, ?)"
+                 VALUES (?, ?, ?, ?, ?)",
+                'issis',
+                [$bookingId, $from, $to, $userId, $note]
             );
-            $hist->execute([$bookingId, $from, $to, $uid, $note]);
-
-            $pdo->commit();
+            $conn->commit();
 
             json_response(['success' => true, 'status' => $to]);
         }
 
         if ($action === 'worker_complete') {
-            if ($role !== 'worker') {
-                json_response(['success' => false, 'message' => 'Forbidden'], 403);
-            }
+            require_role($role, 'worker');
 
             $bookingId = (int)($data['booking_id'] ?? 0);
             if ($bookingId <= 0) {
                 json_response(['success' => false, 'message' => 'Invalid booking'], 400);
             }
 
-            $pdo->beginTransaction();
+            $conn->begin_transaction();
 
-            $cur = $pdo->prepare('SELECT id, status FROM bookings WHERE id = ? AND worker_user_id = ? LIMIT 1 FOR UPDATE');
-            $cur->execute([$bookingId, $uid]);
-            $row = $cur->fetch();
+            $cur = run_stmt($conn, 'SELECT id, status FROM bookings WHERE id = ? AND worker_user_id = ? LIMIT 1 FOR UPDATE', 'ii', [$bookingId, $userId]);
+            $row = fetch_one_assoc($cur);
             if (!$row) {
-                $pdo->rollBack();
+                $conn->rollback();
                 json_response(['success' => false, 'message' => 'Booking not found'], 404);
             }
 
             $from = (string)$row['status'];
             if (!in_array($from, ['accepted', 'in_progress'], true)) {
-                $pdo->rollBack();
+                $conn->rollback();
                 json_response(['success' => false, 'message' => 'Only accepted jobs can be marked completed'], 400);
             }
 
             $to = 'completed';
-            $upd = $pdo->prepare('UPDATE bookings SET status = ?, updated_at = NOW() WHERE id = ?');
-            $upd->execute([$to, $bookingId]);
-
-            $hist = $pdo->prepare(
+            run_stmt($conn, 'UPDATE bookings SET status = ?, updated_at = NOW() WHERE id = ?', 'si', [$to, $bookingId]);
+            run_stmt(
+                $conn,
                 "INSERT INTO booking_status_history (booking_id, from_status, to_status, changed_by_user_id, note)
-                 VALUES (?, ?, ?, ?, 'Completed by worker')"
+                 VALUES (?, ?, ?, ?, 'Completed by worker')",
+                'issi',
+                [$bookingId, $from, $to, $userId]
             );
-            $hist->execute([$bookingId, $from, $to, $uid]);
-
-            $inc = $pdo->prepare('UPDATE worker_profiles SET jobs_completed = jobs_completed + 1 WHERE user_id = ?');
-            $inc->execute([$uid]);
-
-            $pdo->commit();
+            run_stmt($conn, 'UPDATE worker_profiles SET jobs_completed = jobs_completed + 1 WHERE user_id = ?', 'i', [$userId]);
+            $conn->commit();
 
             json_response(['success' => true, 'status' => $to]);
         }
@@ -330,8 +360,9 @@ try {
 
     json_response(['success' => false, 'message' => 'Invalid method'], 405);
 } catch (Throwable $e) {
-    if (isset($pdo) && $pdo instanceof PDO && $pdo->inTransaction()) {
-        $pdo->rollBack();
+    if (isset($conn) && $conn instanceof mysqli) {
+        // Ignore rollback error if no transaction is active.
+        @$conn->rollback();
     }
     json_response(['success' => false, 'message' => 'Server error'], 500);
 }

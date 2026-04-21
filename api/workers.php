@@ -7,19 +7,29 @@ if (!$user) {
     json_response(['success' => false, 'message' => 'Not authenticated'], 401);
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-    json_response(['success' => false, 'message' => 'Invalid method'], 405);
+function require_method(string $method): void
+{
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== $method) {
+        json_response(['success' => false, 'message' => 'Invalid method'], 405);
+    }
 }
 
-$service = trim((string)($_GET['service'] ?? ''));
-if ($service === '' || !preg_match('/^[a-z0-9-]{2,64}$/', $service)) {
-    json_response(['success' => false, 'message' => 'Invalid service'], 400);
+function get_service_slug(): string
+{
+    $service = trim((string)($_GET['service'] ?? ''));
+    if ($service === '' || !preg_match('/^[a-z0-9-]{2,64}$/', $service)) {
+        json_response(['success' => false, 'message' => 'Invalid service'], 400);
+    }
+    return $service;
 }
+
+require_method('GET');
+$serviceSlug = get_service_slug();
 
 try {
-    $pdo = db();
+    global $conn;
 
-    $stmt = $pdo->prepare(
+    $stmt = $conn->prepare(
         "SELECT 
             u.id,
             u.name,
@@ -37,8 +47,15 @@ try {
          WHERE s.slug = ? AND s.is_active = 1
          ORDER BY wp.rating_avg DESC, wp.jobs_completed DESC, u.name ASC"
     );
-    $stmt->execute([$service]);
-    $rows = $stmt->fetchAll();
+    if (!$stmt) {
+        throw new RuntimeException('Prepare failed');
+    }
+    $stmt->bind_param('s', $serviceSlug);
+    if (!$stmt->execute()) {
+        throw new RuntimeException('Execute failed');
+    }
+    $result = $stmt->get_result();
+    $rows = $result ? ($result->fetch_all(MYSQLI_ASSOC) ?: []) : [];
 
     json_response(['success' => true, 'workers' => $rows]);
 } catch (Throwable $e) {

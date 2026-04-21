@@ -1,11 +1,10 @@
-// =============================================
-// SHOHOJ SHEBA — MAIN.JS
-// Landing page core functionality
-// Last updated structure: March 2026 style
-// =============================================
+
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('✅ Shohoj Sheba Landing Page Initialized');
+
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => document.querySelectorAll(sel);
 
     // ─────────────────────────────────────────────
     // 1. Navbar scroll shadow
@@ -14,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const backToTop = document.getElementById('backToTop');
 
     window.addEventListener('scroll', () => {
+        if (!navbar) return;
         if (window.scrollY > 50) {
             navbar.classList.add('scrolled');
             if (backToTop) backToTop.classList.add('visible');
@@ -26,14 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────────
     // 2. Smooth scroll for all # anchors
     // ─────────────────────────────────────────────
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    $$('a[href^="#"]').forEach(anchor => {
         anchor.addEventListener('click', function(e) {
             // Allow normal navigation if it's not a fragment
             if (this.getAttribute('href') === '#') return;
 
             e.preventDefault();
             const targetId = this.getAttribute('href');
-            const target = document.querySelector(targetId);
+            const target = $(targetId);
 
             if (target) {
                 const headerOffset = 80; // approx navbar height
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. Hamburger menu toggle
     // ─────────────────────────────────────────────
     const hamburger = document.getElementById('hamburger');
-    const nav = document.querySelector('nav');
+    const nav = $('nav');
 
     if (hamburger && nav) {
         hamburger.addEventListener('click', () => {
@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────────
     // 5. Scroll reveal / intersection observer
     // ─────────────────────────────────────────────
-    const revealElements = document.querySelectorAll('.service-card, .step, .feature-box, .testimonial-card');
+    const revealElements = $$('.service-card, .step, .feature-box, .testimonial-card');
 
     if ('IntersectionObserver' in window) {
         const observer = new IntersectionObserver((entries) => {
@@ -97,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────────
     // 6. Quick services strip → service detail page
     // ─────────────────────────────────────────────
-    document.querySelectorAll('.quick-service-item').forEach(item => {
+    $$('.quick-service-item').forEach(item => {
         item.style.cursor = 'pointer'; // visual hint
 
         item.addEventListener('click', () => {
@@ -112,11 +112,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // ─────────────────────────────────────────────
     // Optional: Close mobile menu when clicking a link
     // ─────────────────────────────────────────────
-    document.querySelectorAll('nav a').forEach(link => {
+    $$('nav a').forEach(link => {
         link.addEventListener('click', () => {
             if (window.innerWidth <= 768) { // typical mobile breakpoint
-                nav.classList.remove('open');
-                hamburger.classList.remove('active');
+                if (nav) nav.classList.remove('open');
+                if (hamburger) hamburger.classList.remove('active');
             }
         });
     });

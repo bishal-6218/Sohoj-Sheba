@@ -1,6 +1,10 @@
 
 var currentStep = 1;
-var TOTAL_STEPS  = 4;
+var TOTAL_STEPS = 4;
+
+function $(sel) { return document.querySelector(sel); }
+function $all(sel) { return document.querySelectorAll(sel); }
+function byId(id) { return document.getElementById(id); }
 
 /* ─── Boot ─────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function () {
@@ -12,19 +16,19 @@ document.addEventListener('DOMContentLoaded', function () {
     updateButtons();
 
     /* Role radio changes show/hide worker fields on step 4 */
-    document.querySelectorAll('input[name="role"]').forEach(function (r) {
+    $all('input[name="role"]').forEach(function (r) {
         r.addEventListener('change', syncWorkerFields);
     });
     syncWorkerFields();
 
     /* Input focus ring */
-    document.querySelectorAll('.input-wrap input, .input-wrap select, .input-wrap textarea').forEach(function (el) {
+    $all('.input-wrap input, .input-wrap select, .input-wrap textarea').forEach(function (el) {
         el.addEventListener('focus', function () { el.closest('.input-wrap').classList.add('focused'); });
         el.addEventListener('blur',  function () { el.closest('.input-wrap').classList.remove('focused'); });
     });
 
     /* Form submit */
-    document.getElementById('signupForm').addEventListener('submit', function (e) {
+    byId('signupForm').addEventListener('submit', function (e) {
         e.preventDefault();
         handleSubmit();
     });
@@ -46,9 +50,9 @@ function setupFileUploadFeedback() {
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
     function bind(inputId, wrapId, statusId) {
-        var input = document.getElementById(inputId);
-        var wrap = document.getElementById(wrapId);
-        var status = document.getElementById(statusId);
+        var input = byId(inputId);
+        var wrap = byId(wrapId);
+        var status = byId(statusId);
         if (!input || !wrap || !status) return;
 
         input.addEventListener('change', function () {
@@ -113,12 +117,12 @@ function prevStep() {
 
 function showStep(n) {
     /* Hide all steps */
-    document.querySelectorAll('.form-step').forEach(function (s) {
+    $all('.form-step').forEach(function (s) {
         s.classList.remove('active');
     });
 
     /* Show target step */
-    var target = document.querySelector('.form-step[data-step="' + n + '"]');
+    var target = $('.form-step[data-step="' + n + '"]');
     if (target) target.classList.add('active');
 
     /* Update stepper visuals */

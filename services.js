@@ -1,7 +1,3 @@
-// services.js
-// Dynamic content loader for service-detail.html
-// All logic is self-contained here — no inline script needed in HTML
-
 const serviceDatabase = {
     carpenter: {
         name: "Carpenter",
@@ -95,34 +91,48 @@ const serviceDatabase = {
     }
 };
 
-/**
- * Loads and renders service details based on URL parameter ?service=...
- */
-function loadServiceDetail() {
+function getServiceKey() {
     const urlParams = new URLSearchParams(window.location.search);
-    let serviceKey = urlParams.get('service')?.toLowerCase().trim() || 'carpenter';
+    const raw = urlParams.get('service');
+    const key = (raw ? String(raw) : '').toLowerCase().trim();
+    return key || 'carpenter';
+}
+
+function getServiceData(serviceKey) {
+    if (serviceDatabase[serviceKey]) return serviceDatabase[serviceKey];
+    return serviceDatabase.carpenter;
+}
+
+function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+}
+
+function setHtml(id, html) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+}
+
+function loadServiceDetail() {
+    let serviceKey = getServiceKey();
 
     // Fallback to carpenter if invalid service
     if (!serviceDatabase[serviceKey]) {
-        serviceKey = 'carpenter';
         console.warn(`Service "${serviceKey}" not found → fallback to carpenter`);
+        serviceKey = 'carpenter';
     }
 
-    const service = serviceDatabase[serviceKey];
+    const service = getServiceData(serviceKey);
 
     // ─── Update page title ───────────────────────────────────────
     document.title = `${service.name} Service — Shohoj Sheba`;
 
     // ─── Hero section ─────────────────────────────────────────────
-    const nameEl       = document.getElementById('serviceName');
-    const descEl       = document.getElementById('serviceShortDesc');
-    const priceEl      = document.getElementById('servicePrice');
-    const iconEl       = document.getElementById('heroIcon');
+    setText('serviceName', service.name);
+    setText('serviceShortDesc', service.shortDesc);
+    setHtml('servicePrice', `Starts from <strong>৳${service.price}</strong>`);
 
-    if (nameEl)  nameEl.textContent = service.name;
-    if (descEl)  descEl.textContent = service.shortDesc;
-    if (priceEl) priceEl.innerHTML  = `Starts from <strong>৳${service.price}</strong>`;
-
+    const iconEl = document.getElementById('heroIcon');
     if (iconEl) {
         iconEl.innerHTML = `<i class="fa-solid ${service.icon}"></i>`;
         iconEl.style.background = `linear-gradient(135deg, white, #f8fafc)`;
@@ -130,8 +140,8 @@ function loadServiceDetail() {
     }
 
     // ─── About section ────────────────────────────────────────────
-    const aboutEl = document.getElementById('aboutText');
-    if (aboutEl) aboutEl.textContent = service.about;
+    setText('aboutText', service.about);
+    setText('serviceNameRepeat', service.name);
 
     // ─── What we offer / includes grid ────────────────────────────
     const gridEl = document.getElementById('includesGrid');
