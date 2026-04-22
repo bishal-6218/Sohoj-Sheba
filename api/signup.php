@@ -211,7 +211,7 @@ try {
             ?, ?,
             ?, ?, ?, ?, ?
         )',
-        'ssssssssssssssssi' . 's',
+        'sssssssssssssssssis',
         [
             $role, $name, $email, $hash,
             $phone !== '' ? $phone : null,

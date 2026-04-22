@@ -138,6 +138,20 @@ const SohojShebaDashboard = {
         try { return new Date(str).toLocaleDateString('en-GB', { year:'numeric', month:'long', day:'numeric' }); }
         catch { return str; }
     },
+    _formatDateTime(str) {
+        if (!str) return '—';
+        try {
+            return new Date(str).toLocaleString('en-GB', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+            });
+        } catch {
+            return str;
+        }
+    },
     _cap(str) {
         if (!str) return '—';
         return str.charAt(0).toUpperCase() + str.slice(1).replace(/-/g, ' ');
@@ -1390,7 +1404,7 @@ const SohojShebaDashboard = {
     },
 
     _renderJobCardForWorker(b, showActions, isCompleted = false) {
-        const when = b.scheduled_at ? this._formatDate(b.scheduled_at) : 'Not scheduled';
+        const when = b.scheduled_at ? this._formatDateTime(b.scheduled_at) : 'Not scheduled';
         const addr = b.address_text ? this._escapeHtml(b.address_text) : '—';
         const notes = b.notes ? this._escapeHtml(b.notes) : '—';
         const user = `${this._escapeHtml(b.user_name || 'User')} (${this._escapeHtml(b.user_phone || '—')})`;
